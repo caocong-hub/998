@@ -1,9 +1,17 @@
 import { PrismaClient } from "@prisma/client";
 
 declare global {
+  // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 
-export const db = globalThis.prisma || new PrismaClient();
+const hasDatabaseUrl = !!process.env.DATABASE_URL;
 
-if (process.env.NODE_ENV !== "production") globalThis.prisma = db;
+// If DATABASE_URL is missing, export a typed empty object to avoid runtime crashes.
+export const db = hasDatabaseUrl
+  ? (globalThis.prisma || new PrismaClient())
+  : ({} as PrismaClient);
+
+if (hasDatabaseUrl && process.env.NODE_ENV !== "production") {
+  globalThis.prisma = db;
+}

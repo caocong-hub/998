@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import { NextResponse } from "next/server";
 
 import authConfig from "@/auth.config";
 import {
@@ -30,6 +31,10 @@ export default auth((req) => {
   }
 
   if (!isLoggedIn && !isPublicRoute) {
+    if (nextUrl.pathname.startsWith("/api/") && !isApiAuthRoute) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     let callbackUrl = nextUrl.pathname;
     if (nextUrl.search) {
       callbackUrl += nextUrl.search;

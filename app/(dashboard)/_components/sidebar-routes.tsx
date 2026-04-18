@@ -1,10 +1,9 @@
 "use client";
 
-import { BarChart,Bell,Compass, Heart, Layout, List } from "lucide-react";
+import { Layout, BookOpen, Sparkles, GraduationCap, Activity } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { SidebarItem } from "./sidebar-item";
-import { FaChalkboardTeacher } from "react-icons/fa";
 
 const guestRoutes = [
   {
@@ -13,38 +12,53 @@ const guestRoutes = [
     href: "/dashboard",
   },
   {
-    icon: Compass,
-    label: "Browse",
-    href: "/browse",
+    icon: BookOpen,
+    label: "Teaching Pathway Architect",
+    href: "/teaching-pathway",
   },
   {
-    icon: Heart,
-    label: "Collections",
-    href: "/collections/favorites",
+    icon: Sparkles,
+    label: "Personalized Problem Gen",
+    href: "/personalized-generator",
   },
   {
-    icon: FaChalkboardTeacher,
-    label: "Instructors",
-    href: "/instructors",
+    icon: GraduationCap,
+    label: "Personalized Course Suggestion",
+    href: "/personalized-courses",
+  },
+  {
+    icon: Activity,
+    label: "Emotion Recognition",
+    href: "/emotion-recognition",
   },
 ];
 
 const teacherRoutes = [
   {
-    icon: List,
-    label: "Courses",
-    href: "/teacher/courses",
+    icon: Layout,
+    label: "Dashboard",
+    href: "/dashboard",
   },
   {
-    icon: BarChart,
-    label: "Analytics",
-    href: "/teacher/analytics",
+    icon: BookOpen,
+    label: "Teaching Pathway Architect",
+    href: "/teaching-pathway",
   },
   {
-    icon: Bell,
-    label: "Announcements",
-    href: "/teacher/announcements", 
-  }
+    icon: Sparkles,
+    label: "Personalized Problem Gen",
+    href: "/personalized-generator",
+  },
+  {
+    icon: GraduationCap,
+    label: "Personalized Course Suggestion",
+    href: "/personalized-courses",
+  },
+  {
+    icon: Activity,
+    label: "Emotion Recognition",
+    href: "/emotion-recognition",
+  },
 ]
 
 export const SidebarRoutes = () => {

@@ -1,20 +1,22 @@
-import fs from 'fs';
-import csv from 'csv-parser';
-import { PrismaClient } from '@prisma/client';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+/**
+ * Optional: import teacher emails from CSV into the `Teacher` model.
+ * Not run by `prisma db seed`. Run with: node scripts/seed-teachers-from-csv.js
+ */
+const fs = require('fs');
+const csv = require('csv-parser');
+const { PrismaClient } = require('@prisma/client');
+const path = require('path');
 
 const prisma = new PrismaClient();
 
 // Derive the current file path and directory path
-const currentFileUrl = import.meta.url;
-const currentFilePath = fileURLToPath(currentFileUrl);
-const currentDirPath = dirname(currentFilePath);
+const currentFilePath = __filename;
+const currentDirPath = __dirname;
 
 // Function to read emails from a CSV file
-const readEmailsFromCSV = async (csvFilePath: string): Promise<string[]> => {
+const readEmailsFromCSV = async (csvFilePath) => {
     return new Promise((resolve, reject) => {
-        const emails: string[] = [];
+        const emails = [];
         fs.createReadStream(csvFilePath)
             .pipe(csv({ headers: ['email'], skipLines: 0 })) // Explicitly set headers and skip lines
             .on('data', (row) => {
@@ -36,7 +38,7 @@ const readEmailsFromCSV = async (csvFilePath: string): Promise<string[]> => {
 };
 
 // Function to insert emails into the Teacher model
-const insertEmails = async (emails: string[]) => {
+const insertEmails = async (emails) => {
     try {
         for (const email of emails) {
             await prisma.teacher.create({
@@ -57,7 +59,7 @@ const insertEmails = async (emails: string[]) => {
 async function main() {
     try {
         // Path to the CSV file with emails
-        const csvFilePath = join(currentDirPath, '..', 'app', '(protected)', 'teachers', 'teachers.csv');
+        const csvFilePath = path.join(currentDirPath, '..', 'app', '(protected)', 'teachers', 'teachers.csv');
 
         // Read the emails from the CSV file
         const emails = await readEmailsFromCSV(csvFilePath);

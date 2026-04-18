@@ -1,129 +1,158 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Poppins } from "next/font/google";
+import Link from "next/link";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { UpdateDialog } from "@/components/dashboard/update-dialog";
-import { db } from "@/lib/db";
-import  CalendarDateRangePicker  from "../../../_components/date-range-picker";
-import DoughnutChart from "../../../_components/doughnutChart";
 import { redirect } from "next/navigation";
-import DashboardCoursesCard from "./_components/dashboard-courses";
-import { trackUserActivity } from "@/lib/trackUserActivity";
-import axios from "axios";
-import toast from "react-hot-toast";
 
-const font = Poppins({
-  subsets: ["latin"],
-  weight: ["600"],
-});
-
-enum UserRole {
-  ADMIN = "ADMIN",
-  TEACHER = "TEACHER",
-  USER = "USER",
-}
-
-interface CategoryData {
-  category: string;
-  percentage: number;
-}
-
-const Dashboard = () => {
+export default function Dashboard() {
   const user = useCurrentUser();
-  const [showDialog, setShowDialog] = useState(false);
-  const [chartData, setChartData] = useState<{
-    labels: string[];
-    data: number[];
-  }>({ labels: [], data: [] });
-  const [checkInShown, setCheckInShown] = useState(false);
-  const [checkInDates, setCheckInDates] = React.useState<string[]>([]);
+  const userId = user?.id;
 
-  if (!user) {
-    redirect("/");
+  if (!userId) {
+    redirect("/auth/login");
   }
-  useEffect(() => {
-    const checkRollNo = () => {
-      try {
-        if (user && user?.role === UserRole.USER && user.rollNo === "") {
-          setShowDialog(true);
-        } else {
-          setShowDialog(false);
-        }
-      } catch (error) {
-        console.error("Error checking rollNo:", error);
-      }
-    };
-    checkRollNo();
-  }, [user]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch(
-          `/api/analytics/doughnutData?userId=${user.id}`
-        );
-        const data = await response.json();
+  const schedule = [
+    { time: "09:00", title: "Review notes" },
+    { time: "11:00", title: "Practice set" },
+    { time: "14:00", title: "Watch lecture" },
+  ];
 
-        if (response.ok) {
-          setChartData({ labels: data.labels, data: data.data });
-        } else {
-          console.error("Failed to fetch chart data:", data.error);
-        }
-      } catch (error) {
-        console.error("Error fetching chart data:", error);
-      }
-    };
-    const dailyCheckIn=async () => {
-     
-      try {
-           const response= await axios.post(`/api/user/trackUserActivity`);
-           setCheckInDates(response.data.checkInDates);
-          if(response.data.message==="First time" && !checkInShown){
-         toast.success("Daily Check-in");
-            setCheckInShown(true);
-          }
-      } catch (error) {
-          console.error("Error tracking daily check-In progress:", error);
-      }
-   
-    }
+  const chart = [
+    { label: "Mon", value: 60 },
+    { label: "Tue", value: 45 },
+    { label: "Wed", value: 80 },
+    { label: "Thu", value: 30 },
+    { label: "Fri", value: 55 },
+  ];
 
-    fetchData();
-   dailyCheckIn();
-  }, [user.id,checkInShown]);
-  
-  const handleCloseDialog = () => {
-    // Close the Dialog
-    setShowDialog(false);
-  };
+  const modules = [
+    {
+      title: "Teaching Pathway Architect",
+      desc: "Upload PDF or paste text to map knowledge points.",
+      href: "/teaching-pathway",
+    },
+    {
+      title: "Personalized Problem Generation",
+      desc: "Click once to generate 5 tailored problems.",
+      href: "/personalized-generator",
+    },
+    {
+      title: "Personalized Course Suggestion",
+      desc: "Give directions and feedback to get top course picks.",
+      href: "/personalized-courses",
+    },
+    {
+      title: "Emotion Recognition",
+      desc: "Live camera/audio sentiment with floating mini window.",
+      href: "/emotion-recognition",
+    },
+  ];
+
+  const days = Array.from({ length: 35 }).map((_, i) => i + 1);
+  const today = new Date().getDate();
 
   return (
-    <>
-      {showDialog && user && (
-        <UpdateDialog onClose={() => setShowDialog(false)} userId={user?.id} />
-      )}
-      <div className="flex flex-col md:flex-row">
-        {/* Main content area */}
-        <div className="flex-1 p-4 space-y-6 md:mr-72">
-          <DashboardCoursesCard userId={user.id!} />
-        </div>
-
-        <div className=" hidden md:block fixed right-0 top-[80px] bottom-0 w-64 p-4 space-y-4 md:w-72 bg-white shadow-lg">
-          <div className="min-h-[326px]">
-            <CalendarDateRangePicker checkInDates={checkInDates} />
+    <main className="min-h-screen w-full bg-slate-50 px-6 py-6">
+      <div className="flex flex-col md:flex-row gap-6">
+        <section className="flex-1 space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Dashboard
+            </p>
+            <h1 className="text-2xl font-bold text-slate-900 mt-1">
+              Welcome back
+            </h1>
+            <p className="text-sm text-slate-500 mt-2">
+              Quick overview of your learning day.
+            </p>
           </div>
-          {chartData.data.length === 0 || chartData.labels.length === 0 ? (
-            <div className="border border-gray-400 pt-0 rounded-xl my-auto h-[300px] flex items-center justify-center">
-              <p>No data available</p>
-            </div>
-          ) : (
-            <DoughnutChart labels={chartData.labels} data={chartData.data} />
-          )}
-        </div>
-      </div>
-    </>
-  );
-};
 
-export default Dashboard;
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <p className="text-sm font-semibold text-slate-900">Modules</p>
+              <div className="mt-3 space-y-3 text-sm text-slate-600">
+                {modules.map((m) => (
+                  <div key={m.href} className="space-y-1">
+                    <Link
+                      href={m.href}
+                      className="font-semibold text-slate-900 hover:text-blue-600 transition inline-flex items-center gap-1"
+                    >
+                      {m.title}
+                      <span className="text-xs font-normal text-blue-600">→</span>
+                    </Link>
+                    <p className="text-slate-500 text-xs leading-relaxed">
+                      {m.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <p className="text-sm font-semibold text-slate-900">Today’s schedule</p>
+              <ul className="mt-3 space-y-2 text-sm text-slate-600">
+                {schedule.map((item) => (
+                  <li key={item.time} className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-slate-500 w-12">
+                      {item.time}
+                    </span>
+                    <span>{item.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <aside className="w-full md:w-80 lg:w-96 space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Calendar
+            </p>
+            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-slate-600">
+              {["M", "T", "W", "T", "F", "S", "S"].map((d) => (
+                <div key={d} className="font-semibold text-slate-500 py-1">
+                  {d}
+                </div>
+              ))}
+              {days.map((d) => (
+                <div
+                  key={d}
+                  className={`py-2 rounded-lg border text-slate-700 ${
+                    d === today
+                      ? "bg-indigo-50 border-indigo-200 font-semibold text-indigo-700"
+                      : "bg-slate-50 border-slate-100"
+                  }`}
+                >
+                  {d}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Weekly activity
+            </p>
+            <div className="mt-4 space-y-2">
+              {chart.map((c) => (
+                <div key={c.label}>
+                  <div className="flex items-center justify-between text-xs text-slate-600">
+                    <span>{c.label}</span>
+                    <span>{c.value}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden mt-1">
+                    <div
+                      className="h-full bg-indigo-500"
+                      style={{ width: `${c.value}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  );
+}

@@ -1,18 +1,24 @@
-const fs = require('fs');
-const csv = require('csv-parser');
-const { PrismaClient } = require('@prisma/client');
-const path = require('path');
+/**
+ * Optional: import teacher emails from CSV into the `Teacher` model.
+ * Not run by `prisma db seed`. Run manually if needed (see package scripts).
+ */
+import fs from 'fs';
+import csv from 'csv-parser';
+import { PrismaClient } from '@prisma/client';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 const prisma = new PrismaClient();
 
 // Derive the current file path and directory path
-const currentFilePath = __filename;
-const currentDirPath = __dirname;
+const currentFileUrl = import.meta.url;
+const currentFilePath = fileURLToPath(currentFileUrl);
+const currentDirPath = dirname(currentFilePath);
 
 // Function to read emails from a CSV file
-const readEmailsFromCSV = async (csvFilePath) => {
+const readEmailsFromCSV = async (csvFilePath: string): Promise<string[]> => {
     return new Promise((resolve, reject) => {
-        const emails = [];
+        const emails: string[] = [];
         fs.createReadStream(csvFilePath)
             .pipe(csv({ headers: ['email'], skipLines: 0 })) // Explicitly set headers and skip lines
             .on('data', (row) => {
@@ -34,7 +40,7 @@ const readEmailsFromCSV = async (csvFilePath) => {
 };
 
 // Function to insert emails into the Teacher model
-const insertEmails = async (emails) => {
+const insertEmails = async (emails: string[]) => {
     try {
         for (const email of emails) {
             await prisma.teacher.create({
@@ -55,7 +61,7 @@ const insertEmails = async (emails) => {
 async function main() {
     try {
         // Path to the CSV file with emails
-        const csvFilePath = path.join(currentDirPath, '..', 'app', '(protected)', 'teachers', 'teachers.csv');
+        const csvFilePath = join(currentDirPath, '..', 'app', '(protected)', 'teachers', 'teachers.csv');
 
         // Read the emails from the CSV file
         const emails = await readEmailsFromCSV(csvFilePath);

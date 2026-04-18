@@ -6,6 +6,8 @@ import authConfig from "@/auth.config";
 import { getUserById } from "@/data/user";
 import { getAccountByUserId } from "./data/account";
 
+const hasDatabaseUrl = !!process.env.DATABASE_URL;
+
 export const {
   handlers: { GET, POST },
   auth,
@@ -14,7 +16,7 @@ export const {
   unstable_update,
 } = NextAuth({
   pages: {
-    signIn: "/auth/register",
+    signIn: "/auth/login",
     error: "/auth/error",
   },
   events: {
@@ -27,13 +29,16 @@ export const {
   },
   callbacks: {
     async signIn({ account, profile }) {
-      // Check if email is verified and ends with `@nitj.ac.in`
-      // if (!profile?.email_verified || !profile?.email?.endsWith(`@nitj.ac.in`)) {
-      //   return false;
-      // }
+      // Credentials (demo account): allow sign-in
+      if (account?.provider === "credentials") {
+        return true;
+      }
+
+      // OAuth (e.g. Google): require verified email on the provider profile
       if (!profile?.email_verified) {
         return false;
       }
+
       return true;
     },
     async session({ token, session }) {
@@ -59,6 +64,16 @@ export const {
     },
     async jwt({ token }) {
       if (!token.sub) return token;
+
+      // Demo fallback: if DATABASE_URL is missing, avoid DB calls and set static user info
+      if (!hasDatabaseUrl) {
+        token.isOAuth = false;
+        token.name = token.name || "Account 998";
+        token.email = token.email || "998@example.com";
+        token.role = token.role || UserRole.USER;
+        token.rollNo = token.rollNo || "998";
+        return token;
+      }
 
       // Fetch the existing user by ID
       const existingUser = await getUserById(token.sub);
@@ -98,7 +113,7 @@ export const {
       return token;
     },
   },
-  adapter: PrismaAdapter(db),
+  ...(hasDatabaseUrl ? { adapter: PrismaAdapter(db) } : {}),
   session: { strategy: "jwt" },
   ...authConfig,
 });

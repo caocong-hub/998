@@ -1,5 +1,7 @@
 # Learning Management System (LMS)
 
+**Production deploy:** see [DEPLOY.md](./DEPLOY.md) (Vercel + MongoDB Atlas).
+
 ![LMS Dashboard](https://github.com/whatDeepak/lms-project/blob/dev-branch-current/public/main.jpg)
 
 Our **Learning Management System (LMS)** redefines online education with a modern and intuitive platform that caters to both instructors and learners. Our LMS offers a seamless experience to help you learn and teach effectively.

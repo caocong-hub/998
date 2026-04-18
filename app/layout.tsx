@@ -5,6 +5,7 @@ import { auth } from '@/auth'
 import './globals.css'
 import { ConfettiProvider } from '@/components/providers/confetti-provider'
 import { ToastProvider } from '@/components/providers/toaster-provider'
+import { EmotionMini } from '@/components/providers/emotion-mini'
 
 const inter = Inter({ subsets: ['latin'] })
 const poppins = Poppins({
@@ -31,6 +32,7 @@ export default async function RootLayout({
         <body className={poppins.className}>
           <ConfettiProvider />
           <ToastProvider />
+          <EmotionMini />
           {children}
         </body>
       </html>

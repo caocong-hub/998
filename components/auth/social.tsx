@@ -12,21 +12,22 @@ export const Social = ({type}: socialProps) => {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
 
-  const onClick = (provider: "google" | "github") => {
-    signIn(provider, {
+  const onClick = () => {
+    signIn("credentials", {
+      account: "998",
+      password: "12",
       callbackUrl: callbackUrl || DEFAULT_LOGIN_REDIRECT,
     });
-  }
+  };
 
   return (
     <div className="flex items-center w-full gap-x-2">
       <Button
         size="lg"
         className="w-full"
-        onClick={() => onClick("google")}
+        onClick={onClick}
       >
-        {/* <FcGoogle className="h-5 w-5" /> */}
-        {type==="signUp"? `Create an Account` : `Log in here` }  
+        {type==="signUp" ? "Use demo account 998 to sign up and log in" : "Use demo account 998 to log in"}  
       </Button>
     </div>
   );

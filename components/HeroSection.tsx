@@ -24,19 +24,22 @@ export default function HeroSection(
                 anywhere easily!
               </p>
               <p className=" my-[20px] max-w-[320px] md:max-w-none md:mb-[32px] text-[15px] font-light leading-[129%] sm:text-[18px] font-roboto ">
-                Discover a new way to communicate & connect with fast, easy &
-                unlimited free chat today!
+                Discover a new way to learn and track your progress with our LMS platform.
               </p>
-              {!userId &&  <Link href={"/auth/register"}>
-                <Button variant="default" size="custom">
-                  Get Started
-                </Button>
-              </Link>}
-             {userId &&  <Link href={"/dashboard"}>
-                <Button variant="default" size="custom">
-                  Get Started
-                </Button>
-              </Link>}
+              {!userId && (
+                <Link href={"/auth/login"}>
+                  <Button variant="default" size="custom">
+                    Get Started
+                  </Button>
+                </Link>
+              )}
+              {userId && (
+                <Link href={"/dashboard"}>
+                  <Button variant="default" size="custom">
+                    Get Started
+                  </Button>
+                </Link>
+              )}
             </div>
             <div className="text-left sm:max-w-none sm:-mr-[50px] md:-mr-[100px] sm:min-h-[400px] mt-[20px] sm:mt-0 ">
               <Image
