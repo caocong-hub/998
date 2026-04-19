@@ -7,7 +7,7 @@ type MiniState = {
   label: string;
   confidence: number;
   frame?: string;
-  source?: "llm" | "heuristic";
+  source?: "llm" | "heuristic" | "m4";
   short_advice?: string;
 };
 
@@ -75,7 +75,7 @@ export function EmotionMini() {
         </div>
         {state.source && (
           <div className="absolute top-2 right-2 rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-700">
-            {state.source === "llm" ? "LLM" : "Rule"}
+            {state.source === "llm" ? "LLM" : state.source === "m4" ? "M4" : "Rule"}
           </div>
         )}
       </div>

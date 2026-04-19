@@ -11,7 +11,7 @@ const MODE_OPTIONS: { id: Mode; title: string; desc: string }[] = [
   {
     id: "recommend",
     title: "Recommend candidate set (bank)",
-    desc: "10 道高等数学题库，每次随机抽取 5 道。",
+    desc: "Randomly generate five practice problems from the calculus bank.",
   },
   {
     id: "generate",
@@ -116,7 +116,7 @@ export default function PersonalizedGeneratorPage() {
       setGenerated(
         picked.map((q, idx) => ({
           id: `p-${t}-${idx}-${q.id}`,
-          title: `${q.title} · 高等数学题库 · top k=${topK}, min attempts=${minAttempts}`,
+          title: `${q.title} · Calculus bank · top k=${topK}, min attempts=${minAttempts}`,
           stem: q.stem,
           mode: "recommend",
         }))
@@ -310,7 +310,7 @@ export default function PersonalizedGeneratorPage() {
             </p>
             <p className="text-sm text-violet-900 mt-1">
               {mode === "recommend" &&
-                "从 10 道高等数学固定题库中随机抽取 5 道（每次点击 Generate 重新抽样）。"}
+                "Generate exactly five random calculus-bank problems each time you click Generate."}
               {mode === "generate" &&
                 "We will ask LLM to produce one fresh problem matching your profile."}
               {mode === "weak-practice" &&

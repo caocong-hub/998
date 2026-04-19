@@ -36,7 +36,7 @@ Output rules:
 - Keys must be exactly: "title" (short heading) and "stem" (full problem statement; may include sub-questions).
 - Difficulty and style must match the learner level given in the user message.
 - Target the learner's weaknesses; use strengths only for appropriate scaffolding.
-- Use the same language as the learner profile and recommendations in the user message (e.g. if they are in Chinese, write in Chinese).`;
+- Always write in English.`;
 
 function buildUserMessage(input: GenerateProblemLlmInput): string {
   const { profile, topic } = input;

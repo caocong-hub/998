@@ -1,5 +1,5 @@
 /**
- * Fixed bank of 10 higher-math (高等数学) problems for the recommend mode.
+ * Fixed higher-math bank for random five-question generation.
  */
 
 export type CalculusBankItem = {
@@ -11,53 +11,53 @@ export type CalculusBankItem = {
 export const CALCULUS_BANK: CalculusBankItem[] = [
   {
     id: "calc-1",
-    title: "极限：重要极限",
-    stem: "求极限 lim(x→0) (sin 2x) / x，写出主要变形步骤。",
+    title: "Limits: fundamental limit",
+    stem: "Compute lim(x→0) (sin 2x) / x and show the main transformation steps.",
   },
   {
     id: "calc-2",
-    title: "导数：用定义求导",
-    stem: "设 f(x) = x² + 3x，用导数定义求 f′(2)。",
+    title: "Derivative from definition",
+    stem: "Let f(x) = x^2 + 3x. Use the derivative definition to find f'(2).",
   },
   {
     id: "calc-3",
-    title: "求导：乘积与复合",
-    stem: "求函数 y = x²·e^(−x) 的导数 y′。",
+    title: "Product and chain rules",
+    stem: "Find the derivative of y = x^2 * e^(-x).",
   },
   {
     id: "calc-4",
-    title: "隐函数求导",
-    stem: "由方程 x² + y² = 1（y > 0）确定 y = y(x)，求 dy/dx。",
+    title: "Implicit differentiation",
+    stem: "Given x^2 + y^2 = 1 with y > 0 defining y = y(x), find dy/dx.",
   },
   {
     id: "calc-5",
-    title: "不定积分：换元",
-    stem: "计算 ∫ x·e^(x²) dx。",
+    title: "Indefinite integral: substitution",
+    stem: "Evaluate ∫ x * e^(x^2) dx.",
   },
   {
     id: "calc-6",
-    title: "定积分",
-    stem: "计算 ∫₀¹ (2x + 1) dx，并说明其几何意义（直线下的面积）。",
+    title: "Definite integral",
+    stem: "Evaluate ∫_0^1 (2x + 1) dx and briefly explain its geometric meaning.",
   },
   {
     id: "calc-7",
-    title: "洛必达法则",
-    stem: "求极限 lim(x→0) (e^x − 1 − x) / x²。",
+    title: "L'Hospital's rule",
+    stem: "Compute lim(x→0) (e^x − 1 − x) / x^2.",
   },
   {
     id: "calc-8",
-    title: "微分中值定理",
-    stem: "设 f(x) = x³ − 3x 在 [0, 2] 上连续、在 (0, 2) 内可导，用拉格朗日中值定理求满足 f′(ξ) = (f(2) − f(0)) / (2 − 0) 的 ξ。",
+    title: "Mean value theorem",
+    stem: "For f(x) = x^3 − 3x on [0, 2], find ξ in (0,2) such that f'(ξ) = (f(2)-f(0))/(2-0).",
   },
   {
     id: "calc-9",
-    title: "一阶线性微分方程",
-    stem: "求微分方程 y′ + y = e^(−x) 的通解。",
+    title: "First-order linear ODE",
+    stem: "Solve the differential equation y' + y = e^(-x).",
   },
   {
     id: "calc-10",
-    title: "二元函数：偏导数",
-    stem: "设 z = x²y + ln(xy)（x > 0, y > 0），求 ∂z/∂x 与 ∂z/∂y。",
+    title: "Partial derivatives",
+    stem: "Let z = x^2 y + ln(xy), where x>0 and y>0. Compute ∂z/∂x and ∂z/∂y.",
   },
 ];
 
