@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 import { currentUser } from "@/lib/auth";
 import { isLlmConfigured } from "@/lib/llm/config";
 import { generateProblemWithLlm } from "@/lib/personalized-generator/llm-problem";

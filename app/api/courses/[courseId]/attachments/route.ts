@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 import { db } from "@/lib/db";
 
 export async function POST(

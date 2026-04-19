@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 import { currentUser } from "@/lib/auth";
 import { isLlmConfigured } from "@/lib/llm/config";
 import { parseTeachingPathFromText } from "@/lib/teaching-path/heuristic-parse";

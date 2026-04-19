@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 import { currentUser } from "@/lib/auth";
 
 const base = process.env.M4_API_URL?.replace(/\/$/, "");

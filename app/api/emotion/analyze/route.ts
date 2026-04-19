@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 import { currentUser } from "@/lib/auth";
 import { buildFallbackEmotion } from "@/lib/emotion/fallback-emotion";
 import { analyzeEmotionWithLlm } from "@/lib/emotion/llm-emotion";

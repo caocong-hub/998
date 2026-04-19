@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { currentUser } from '@/lib/auth';
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest, { params }: { params: { courseId: string } }) {
   try {
     const user = await currentUser();

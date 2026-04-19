@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // api/courses/[courseId]/chapters/[chapterId]/quizzes/[quizId]/index.ts
 
 import { NextResponse } from "next/server";

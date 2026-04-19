@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // api/quiz/questions/[quizId].ts
 
 import { NextResponse } from "next/server";
