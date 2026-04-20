@@ -1,0 +1,11 @@
+# Large local checkpoint in repo root (symlink in checkpoints/ may be committed)
+best_trimodal_model_模型权重.pth
+
+.venv/
+__pycache__/
+*.py[cod]
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
