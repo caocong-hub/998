@@ -46,6 +46,25 @@ type PredictPayload = {
   utterance_index: number;
 };
 
+function debugLog(hypothesisId: string, location: string, message: string, data: Record<string, unknown>) {
+  fetch("http://127.0.0.1:7885/ingest/e2ae3a21-ff15-4e12-90f1-78f203e315e8", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "dadf4d",
+    },
+    body: JSON.stringify({
+      sessionId: "dadf4d",
+      runId: "m2-health-client-pre",
+      hypothesisId,
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
+
 function actionFromLabel(label: string): string {
   if (label === "Sad" || label === "Angry") return "TRIGGER_INTERVENTION";
   if (label === "Happy") return "INCREASE_DIFFICULTY";
@@ -80,8 +99,24 @@ export default function EmotionRecognitionPage() {
       setHealthError(null);
       setListLoading(true);
       try {
-        const resHealth = await fetch("/api/m4/health", { credentials: "include" });
+        // #region agent log
+        debugLog("H5", "app/emotion-recognition/page.tsx:104", "health-fetch-start", {
+          endpoint: "/api/m2/health",
+        });
+        // #endregion
+        const resHealth = await fetch("/api/m2/health", { credentials: "include" });
         const healthData = (await resHealth.json().catch(() => ({}))) as HealthPayload;
+        // #region agent log
+        debugLog("H5", "app/emotion-recognition/page.tsx:111", "health-fetch-response", {
+          status: resHealth.status,
+          ok: resHealth.ok,
+          hasError: typeof healthData?.error === "string",
+          errorMessage:
+            typeof healthData?.error === "string" ? healthData.error.slice(0, 180) : null,
+          checkpointLoaded:
+            typeof healthData?.checkpoint_loaded === "boolean" ? healthData.checkpoint_loaded : null,
+        });
+        // #endregion
         if (!resHealth.ok) {
           if (resHealth.status === 401) {
             setHealthError("Please sign in.");
@@ -89,16 +124,20 @@ export default function EmotionRecognitionPage() {
             setHealthError(
               typeof healthData.error === "string"
                 ? healthData.error
-                : "M4 API URL is not configured or the service is unavailable."
+                : "M2 API URL is not configured or the service is unavailable."
             );
           } else {
-            setHealthError("Could not reach M4 health endpoint.");
+            setHealthError(
+              typeof healthData.error === "string"
+                ? `${healthData.error}${typeof healthData?.checkpoint_path === "string" ? ` (${healthData.checkpoint_path})` : ""}`
+                : "Could not reach M2 health endpoint."
+            );
           }
         } else if (!cancelled) {
           setHealth(healthData);
         }
 
-        const resSessions = await fetch("/api/m4/sessions", { credentials: "include" });
+        const resSessions = await fetch("/api/m2/sessions", { credentials: "include" });
         const sessData = await resSessions.json().catch(() => ({}));
         if (!resSessions.ok) {
           if (resSessions.status === 401) setHealthError("Please sign in.");
@@ -106,7 +145,7 @@ export default function EmotionRecognitionPage() {
             setHealthError(
               typeof sessData.error === "string"
                 ? sessData.error
-                : "M4 API URL is not configured or the service is unavailable."
+                : "M2 API URL is not configured or the service is unavailable."
             );
           }
         } else if (!cancelled) {
@@ -117,7 +156,12 @@ export default function EmotionRecognitionPage() {
           setSession((prev) => (prev && list.includes(prev) ? prev : list[0] ?? ""));
         }
       } catch {
-        if (!cancelled) setHealthError("Network error loading M4.");
+        // #region agent log
+        debugLog("H6", "app/emotion-recognition/page.tsx:151", "health-fetch-catch", {
+          endpoint: "/api/m2/health",
+        });
+        // #endregion
+        if (!cancelled) setHealthError("Network error loading M2.");
       } finally {
         if (!cancelled) setListLoading(false);
       }
@@ -135,7 +179,7 @@ export default function EmotionRecognitionPage() {
       setVideoMsg(null);
       try {
         const res = await fetch(
-          `/api/m4/sessions/${encodeURIComponent(session)}/videos`,
+          `/api/m2/sessions/${encodeURIComponent(session)}/videos`,
           { credentials: "include" }
         );
         const data = await res.json().catch(() => ({}));
@@ -168,7 +212,7 @@ export default function EmotionRecognitionPage() {
       try {
         const q = new URLSearchParams({ video });
         const res = await fetch(
-          `/api/m4/sessions/${encodeURIComponent(session)}/dialogue?${q}`,
+          `/api/m2/sessions/${encodeURIComponent(session)}/dialogue?${q}`,
           { credentials: "include" }
         );
         const data = await res.json().catch(() => ({}));
@@ -196,7 +240,7 @@ export default function EmotionRecognitionPage() {
       video,
       utterance_index: String(utteranceIndex),
     });
-    return `/api/m4/sessions/${encodeURIComponent(session)}/utterance-audio?${q.toString()}`;
+    return `/api/m2/sessions/${encodeURIComponent(session)}/utterance-audio?${q.toString()}`;
   }, [session, video, dialogue.length, utteranceIndex]);
 
   const runPredict = useCallback(async () => {
@@ -205,7 +249,7 @@ export default function EmotionRecognitionPage() {
     setAnalyzeError(null);
     setResult(null);
     try {
-      const res = await fetch("/api/m4/predict", {
+      const res = await fetch("/api/m2/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -251,7 +295,7 @@ export default function EmotionRecognitionPage() {
   const jsonSignal = useMemo(() => {
     if (!result) return null;
     return {
-      source: "m4",
+      source: "m2",
       id: result.utterance.id,
       state: result.label,
       action: actionFromLabel(result.label),
@@ -277,7 +321,7 @@ export default function EmotionRecognitionPage() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
               Emotion Recognition
             </p>
-            <h1 className="text-lg font-bold text-slate-900">IEMOCAP trimodal (M4)</h1>
+            <h1 className="text-lg font-bold text-slate-900">Multimodal Emotion Recognition</h1>
           </div>
         </div>
       </header>
@@ -290,11 +334,11 @@ export default function EmotionRecognitionPage() {
               <p>
                 未找到融合模型权重文件，当前分类头为随机初始化，预测仅供参考。请将训练得到的{" "}
                 <code className="text-xs">best_trimodal_model.pth</code> 放到默认路径，或设置环境变量{" "}
-                <code className="text-xs">M4_CHECKPOINT_PATH</code> 指向该文件后重启 FastAPI。默认查找路径：
+                <code className="text-xs">M2_CHECKPOINT_PATH</code> 指向该文件后重启 FastAPI。默认查找路径：
                 {typeof health.checkpoint_path === "string" && (
                   <code className="text-xs ml-1 block mt-1 break-all">{health.checkpoint_path}</code>
                 )}
-                说明见仓库 <code className="text-xs">m4/checkpoints/README.md</code>。
+                说明见仓库 <code className="text-xs">m2/checkpoints/README.md</code>。
               </p>
             )}
           </div>

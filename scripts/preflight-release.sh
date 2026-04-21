@@ -15,8 +15,8 @@ done
 if [[ -z "${AUTH_URL:-}" && "${AUTH_TRUST_HOST:-}" != "true" ]]; then
   missing+=("AUTH_URL or AUTH_TRUST_HOST=true")
 fi
-if [[ -z "${M4_API_URL:-}" ]]; then
-  missing+=("M4_API_URL")
+if [[ -z "${M2_API_URL:-}" ]]; then
+  missing+=("M2_API_URL")
 fi
 
 if (( ${#missing[@]} > 0 )); then
@@ -35,11 +35,11 @@ npm run build
 echo "==> [4/6] Prisma schema validate"
 npx --no-install prisma validate
 
-echo "==> [5/6] Verify M4 API health via proxy target"
-health_json="$(curl -fsS "$M4_API_URL/health")"
+echo "==> [5/6] Verify M2 API health via proxy target"
+health_json="$(curl -fsS "$M2_API_URL/health")"
 echo "$health_json"
 if ! echo "$health_json" | grep -q '"checkpoint_loaded"[[:space:]]*:[[:space:]]*true'; then
-  echo "M4 health check failed: checkpoint_loaded is not true"
+  echo "M2 health check failed: checkpoint_loaded is not true"
   exit 1
 fi
 

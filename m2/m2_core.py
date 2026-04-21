@@ -15,12 +15,37 @@ from transformers import (
 )
 
 # ================= BACKEND CONFIG =================
-_M4_DIR = Path(__file__).resolve().parent
-_DEFAULT_IEMOCAP = _M4_DIR / "sample_data" / "IEMOCAP"
-_DEFAULT_CKPT = _M4_DIR / "checkpoints" / "best_trimodal_model.pth"
+_M2_DIR = Path(__file__).resolve().parent
+_DEFAULT_IEMOCAP = _M2_DIR / "sample_data" / "IEMOCAP"
+_DEFAULT_CKPT = _M2_DIR / "checkpoints" / "best_trimodal_model.pth"
+
+
+def _resolve_checkpoint_path() -> str:
+    env_ckpt = os.environ.get("M2_CHECKPOINT_PATH") or os.environ.get("M4_CHECKPOINT_PATH")
+    if env_ckpt:
+        return env_ckpt
+
+    candidates = [
+        _DEFAULT_CKPT,
+        _M2_DIR / "best_trimodal_model.pth",
+        _M2_DIR / "best_trimodal_model_模型权重.pth",
+    ]
+    for p in candidates:
+        if p.is_file():
+            return str(p)
+
+    for p in sorted((_M2_DIR / "checkpoints").glob("*.pth")):
+        if p.is_file():
+            return str(p)
+
+    for p in sorted(_M2_DIR.glob("*.pth")):
+        if p.is_file():
+            return str(p)
+
+    return str(_DEFAULT_CKPT)
 
 IEMOCAP_ROOT = os.environ.get("IEMOCAP_ROOT", str(_DEFAULT_IEMOCAP))
-CHECKPOINT_PATH = os.environ.get("M4_CHECKPOINT_PATH", str(_DEFAULT_CKPT))
+CHECKPOINT_PATH = _resolve_checkpoint_path()
 
 ID2LABEL = {0: 'Neutral', 1: 'Happy', 2: 'Sad', 3: 'Angry'}
 

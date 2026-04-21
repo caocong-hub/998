@@ -1,4 +1,4 @@
-"""FastAPI wrapper for M4Service (trimodal emotion). Run from `m4/`: uvicorn server:app --host 127.0.0.1 --port 8765"""
+"""FastAPI wrapper for M2Service (trimodal emotion). Run from `m2/`: uvicorn server:app --host 127.0.0.1 --port 8765"""
 
 from __future__ import annotations
 
@@ -14,20 +14,20 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from PIL import Image
 
-from m4_core import CHECKPOINT_PATH, IEMOCAP_ROOT, ID2LABEL, M4Service
+from m2_core import CHECKPOINT_PATH, IEMOCAP_ROOT, ID2LABEL, M4Service as M2Service
 
-_engine: M4Service | None = None
+_engine: M2Service | None = None
 
 
-def get_engine() -> M4Service:
+def get_engine() -> M2Service:
     global _engine
     if _engine is None:
-        _engine = M4Service()
+        _engine = M2Service()
     return _engine
 
 
 def _cors_origins() -> list[str]:
-    raw = os.environ.get("M4_CORS_ORIGINS", "http://localhost:3000")
+    raw = os.environ.get("M2_CORS_ORIGINS") or os.environ.get("M4_CORS_ORIGINS", "http://localhost:3000")
     return [o.strip() for o in raw.split(",") if o.strip()]
 
 
@@ -66,7 +66,7 @@ def pil_to_jpeg_b64(img: Image.Image) -> str:
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-app = FastAPI(title="M4 Trimodal API", version="1.0.0")
+app = FastAPI(title="M2 Trimodal API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins(),

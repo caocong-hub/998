@@ -1,7 +1,7 @@
 # M4: trimodal inference + FastAPI. Install with: python3 -m pip install -r requirements.txt
 # (or use .venv — see README)
 
-# Core ML / media (m4_core.py)
+# Core ML / media (m2_core.py)
 torch>=2.1.0
 torchvision>=0.16.0
 transformers>=4.36.0

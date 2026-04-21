@@ -108,14 +108,18 @@ export const QuizQuestionsForm = ({
                 Quiz Questions
 
                 {!isEditing ? (
-                    <Button variant="ghost" onClick={toggleEditing}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit questions
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" onClick={toggleEditing}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit questions
+                        </Button>
+                    </div>
                 ) : (
-                    <Button variant="ghost" onClick={onCancel}>
-                        Cancel
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" onClick={onCancel}>
+                            Cancel
+                        </Button>
+                    </div>
                 )}
             </div>
             {isEditing && (

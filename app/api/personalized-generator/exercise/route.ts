@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
-
 import { currentUser } from "@/lib/auth";
 import { runModule4Pipeline } from "@/lib/personalized-generator/module4-pipeline";
 import { baseBodySchema, buildModule4Input, normalizeModule4Result } from "../shared";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
@@ -22,11 +22,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const input = buildModule4Input(user.id, parsed.data);
-    const result = await runModule4Pipeline(input);
-    return NextResponse.json(normalizeModule4Result(result));
+    const result = normalizeModule4Result(await runModule4Pipeline(buildModule4Input(user.id, parsed.data)));
+    return NextResponse.json({
+      generated_adaptive_exercises: result.generated_adaptive_exercises,
+      overall_generation_reason: result.overall_generation_reason,
+      meta: {
+        exercise_source: result.meta.exercise_source,
+      },
+    });
   } catch (error) {
-    console.error("[PERSONALIZED_GENERATOR]", error);
+    console.error("[PERSONALIZED_GENERATOR_EXERCISE]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

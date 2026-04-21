@@ -1,44 +1,52 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, Loader2, Sparkles, Target, Wand2 } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
+import type {
+  AdaptiveExercise,
+  SimilarQuestion,
+  UpdatedLearnerProfile,
+} from "@/lib/personalized-generator/module4-types";
 
-import { pickRandomCalculusProblems } from "@/lib/personalized-generator/calculus-bank";
+type ProfileResponse = { updated_learner_profile?: UpdatedLearnerProfile };
+type ExerciseResponse = {
+  generated_adaptive_exercises?: AdaptiveExercise[];
+  overall_generation_reason?: { why_these_exercises: string[] };
+};
+type SimilarResponse = {
+  similar_questions_top5?: SimilarQuestion[];
+};
 
-type Mode = "recommend" | "generate" | "weak-practice";
+function sanitizeDisplayText(raw: string | undefined | null): string {
+  if (!raw) return "";
+  return raw
+    .replace(/\$\$/g, "")
+    .replace(/\$/g, "")
+    .replace(/\\cdots/g, "...")
+    .replace(/\\times/g, "x")
+    .replace(/\\div/g, "/")
+    .replace(/\u200b/g, "")
+    .trim();
+}
 
-const MODE_OPTIONS: { id: Mode; title: string; desc: string }[] = [
-  {
-    id: "recommend",
-    title: "Recommend candidate set (bank)",
-    desc: "Randomly generate five practice problems from the calculus bank.",
-  },
-  {
-    id: "generate",
-    title: "Generate one new problem (LLM)",
-    desc: "Create a fresh problem tailored to the learner profile.",
-  },
-  {
-    id: "weak-practice",
-    title: "Weak concepts random bank practice",
-    desc: "Surface random practice items for weak concepts.",
-  },
-];
+function formatSimilarity(score: number | undefined): string {
+  if (typeof score !== "number" || !Number.isFinite(score) || score < 0) return "N/A";
+  return `${(score * 100).toFixed(1)}%`;
+}
 
 export default function PersonalizedGeneratorPage() {
-  const [mode, setMode] = useState<Mode>("recommend");
-  const [minAttempts, setMinAttempts] = useState<number>(2);
-  const [topK, setTopK] = useState<number>(3);
-  const [generated, setGenerated] = useState<
-    { id: string; title: string; stem: string; mode: Mode }[]
-  >([]);
   const [topic, setTopic] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [generateMeta, setGenerateMeta] = useState<{
-    source: "llm" | "mock";
-    model: string | null;
-  } | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileData, setProfileData] = useState<UpdatedLearnerProfile | null>(null);
+  const [exerciseLoading, setExerciseLoading] = useState(false);
+  const [exerciseError, setExerciseError] = useState<string | null>(null);
+  const [exerciseData, setExerciseData] = useState<AdaptiveExercise | null>(null);
+  const [overallReasons, setOverallReasons] = useState<string[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
+  const [similarError, setSimilarError] = useState<string | null>(null);
+  const [similarData, setSimilarData] = useState<SimilarQuestion[]>([]);
+  const [retrievalHint, setRetrievalHint] = useState<string | null>(null);
 
   const profile = useMemo(
     () => ({
@@ -49,109 +57,82 @@ export default function PersonalizedGeneratorPage() {
       recs: [
         "Revisit step-by-step examples with guided prompts.",
         "Focus on error-analysis drills for common mistakes.",
-        "Mix 3–5 short practice items before a new concept.",
+        "Mix 3-5 short practice items before a new concept.",
       ],
     }),
     []
   );
 
-  const handleGenerate = async () => {
-    setError(null);
+  const requestBody = useMemo(() => ({ profile, topic: topic.trim() || undefined }), [profile, topic]);
 
-    if (mode === "generate") {
-      setLoading(true);
-      setGenerateMeta(null);
-      try {
-        const res = await fetch("/api/personalized-generator/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            profile,
-            topic: topic.trim() || undefined,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          setError(
-            typeof data?.error === "string"
-              ? data.error
-              : res.status === 401
-              ? "Please sign in to generate a problem."
-              : "Generation failed. Please try again."
-          );
-          return;
-        }
-        const problem = data?.problem as { title?: string; stem?: string } | undefined;
-        if (!problem?.title || !problem?.stem) {
-          setError("Invalid response from server.");
-          return;
-        }
-        const source = data?.source === "llm" ? "llm" : "mock";
-        setGenerateMeta({
-          source,
-          model: typeof data?.model === "string" ? data.model : null,
-        });
-        setGenerated([
-          {
-            id: `p-${Date.now()}-0`,
-            title: problem.title,
-            stem: problem.stem,
-            mode: "generate",
-          },
-        ]);
-      } catch {
-        setError("Network error. Check your connection and try again.");
-      } finally {
-        setLoading(false);
+  async function postJson<T>(url: string, body: unknown) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    const data = (await res.json().catch(() => null)) as T | null;
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  const onGenerateProfile = async () => {
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      const res = await postJson<ProfileResponse>("/api/personalized-generator/profile", requestBody);
+      if (!res.ok || !res.data?.updated_learner_profile) {
+        setProfileError(res.status === 401 ? "Please sign in first." : "Failed to generate learner profile.");
+        return;
       }
-      return;
+      setProfileData(res.data.updated_learner_profile);
+    } catch {
+      setProfileError("Network error while generating learner profile.");
+    } finally {
+      setProfileLoading(false);
     }
-
-    setGenerateMeta(null);
-
-    if (mode === "recommend") {
-      const picked = pickRandomCalculusProblems(5);
-      const t = Date.now();
-      setGenerated(
-        picked.map((q, idx) => ({
-          id: `p-${t}-${idx}-${q.id}`,
-          title: `${q.title} · Calculus bank · top k=${topK}, min attempts=${minAttempts}`,
-          stem: q.stem,
-          mode: "recommend",
-        }))
-      );
-      return;
-    }
-
-    const modeLabel = "Weak concept practice";
-
-    const stems = [
-      "Apply the core formula to a real-world scenario; explain each substitution step.",
-      "Identify the weak step in a multi-stage solution and correct it.",
-      "Provide a short numerical example and ask for a boundary-case check.",
-      "Offer a common mistake and ask the learner to debug the reasoning.",
-      "Create a quick reflection prompt: what changes if one key parameter doubles?",
-    ];
-
-    const batch = stems.map((stem, idx) => ({
-      id: `p-${Date.now()}-${idx}`,
-      title: `${modeLabel} · top k=${topK}, min attempts=${minAttempts}`,
-      stem,
-      mode,
-    }));
-
-    setGenerated(batch);
   };
 
-  const resultsHeading =
-    mode === "generate"
-      ? generated.length === 0
-        ? "Generated problem"
-        : `Generated problem (${generated.length})`
-      : generated.length === 0
-      ? "Latest batch"
-      : `Latest batch (${generated.length})`;
+  const onGenerateExercise = async () => {
+    setExerciseLoading(true);
+    setExerciseError(null);
+    try {
+      const res = await postJson<ExerciseResponse>("/api/personalized-generator/exercise", requestBody);
+      const first = res.data?.generated_adaptive_exercises?.[0];
+      if (!res.ok || !first) {
+        setExerciseError(res.status === 401 ? "Please sign in first." : "Failed to generate adaptive exercise.");
+        return;
+      }
+      setExerciseData(first);
+      setOverallReasons(res.data?.overall_generation_reason?.why_these_exercises ?? []);
+    } catch {
+      setExerciseError("Network error while generating adaptive exercise.");
+    } finally {
+      setExerciseLoading(false);
+    }
+  };
+
+  const onRetrieveSimilar = async () => {
+    setSimilarLoading(true);
+    setSimilarError(null);
+    try {
+      const query = exerciseData?.problem;
+      const res = await postJson<SimilarResponse>("/api/personalized-generator/similar", {
+        ...requestBody,
+        query,
+      });
+      if (!res.ok || !res.data?.similar_questions_top5) {
+        setSimilarError(res.status === 401 ? "Please sign in first." : "Failed to retrieve similar questions.");
+        return;
+      }
+      setSimilarData(res.data.similar_questions_top5);
+      setRetrievalHint(!query ? "No generated exercise found, retrieval used fallback query." : null);
+    } catch {
+      setSimilarError("Network error while retrieving similar questions.");
+    } finally {
+      setSimilarLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen w-full bg-slate-50">
@@ -170,255 +151,122 @@ export default function PersonalizedGeneratorPage() {
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Personalized Problem Generation
+                Module4 Personalized Generation
               </p>
-              <h1 className="text-xl font-bold text-slate-900">
-                Craft questions from learner profile
-              </h1>
+              <h1 className="text-xl font-bold text-slate-900">Independent Action Workflow</h1>
             </div>
           </div>
         </div>
       </header>
-
-      <main className="px-8 py-8 w-full max-w-7xl mx-auto space-y-6">
-        {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            {error}
-          </div>
-        )}
-        <div className="grid lg:grid-cols-[360px_1fr] gap-6">
-        {/* Left rail */}
-        <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Mode
-              </p>
-              <h2 className="text-lg font-bold text-slate-900">
-                Choose how to generate
-              </h2>
-            </div>
-            <Wand2 size={18} className="text-slate-300" />
-          </div>
-
-          <div className="space-y-3">
-            {MODE_OPTIONS.map((item) => {
-              const active = mode === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setMode(item.id)}
-                  className={`w-full text-left p-4 rounded-xl border transition ${
-                    active
-                      ? "border-violet-600 bg-violet-50 shadow-sm"
-                      : "border-slate-200 hover:border-slate-300 bg-white"
-                  }`}
-                >
-                  <p
-                    className={`text-sm font-semibold ${
-                      active ? "text-violet-800" : "text-slate-900"
-                    }`}
-                  >
-                    {item.title}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">{item.desc}</p>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="pt-2 space-y-4">
-            <div className="flex items-center justify-between text-sm font-semibold text-slate-800">
-              <span>Weak concept: min attempts</span>
-              <span className="text-violet-700">{minAttempts}</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={5}
-              value={minAttempts}
-              onChange={(e) => setMinAttempts(Number(e.target.value))}
-              className="w-full accent-violet-600"
-            />
-
-            <div className="flex items-center justify-between text-sm font-semibold text-slate-800">
-              <span>Weak concept: top k</span>
-              <span className="text-violet-700">{topK}</span>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={10}
-              value={topK}
-              onChange={(e) => setTopK(Number(e.target.value))}
-              className="w-full accent-violet-600"
-            />
-          </div>
-        </section>
-
-        {/* Right content */}
-        <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Personalized learning profile
-              </p>
-              <h2 className="text-xl font-bold text-slate-900">
-                Adaptive signals and next steps
-              </h2>
-            </div>
-            <Target size={20} className="text-slate-300" />
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Learner
-              </p>
-              <p className="text-base font-semibold text-slate-900 mt-1">
-                {profile.name}
-              </p>
-              <p className="text-sm text-slate-500">Level: {profile.level}</p>
-            </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Weakness focus
-              </p>
-              <p className="text-sm text-slate-700">
-                {profile.weaknesses.join(", ")}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Min attempts: {minAttempts} · Top k: {topK}
-              </p>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Recommendations
-            </p>
-            <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
-              {profile.recs.map((item, idx) => (
-                <li key={idx}>{item}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="p-4 rounded-xl bg-violet-50 border border-violet-100">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">
-              Mode summary
-            </p>
-            <p className="text-sm text-violet-900 mt-1">
-              {mode === "recommend" &&
-                "Generate exactly five random calculus-bank problems each time you click Generate."}
-              {mode === "generate" &&
-                "We will ask LLM to produce one fresh problem matching your profile."}
-              {mode === "weak-practice" &&
-                "We will pull random practice items targeting weak areas."}
-            </p>
-          </div>
-
-          {mode === "generate" && (
+      <main className="px-8 py-8 w-full max-w-7xl mx-auto">
+        <div className="grid lg:grid-cols-[340px_1fr] gap-6">
+          <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-4 h-fit">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Actions</p>
+            <h2 className="text-lg font-bold text-slate-900">Module4 Controls</h2>
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Optional topic
+                Optional Topic
               </label>
               <textarea
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder="e.g. linear algebra, recursion, a specific chapter…"
-                rows={2}
-                className="w-full rounded-xl border border-slate-200 p-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-violet-300 focus:ring-2 focus:ring-violet-100 outline-none"
+                placeholder="e.g. probability basics, linear algebra..."
+                rows={3}
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm text-slate-800"
               />
             </div>
-          )}
-
-          <div className="pt-2">
             <button
               type="button"
-              onClick={handleGenerate}
-              disabled={loading}
-              className="w-full py-3 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition shadow-lg shadow-violet-200 disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2"
+              onClick={onGenerateProfile}
+              disabled={profileLoading}
+              className="w-full py-2.5 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" size={18} />
-                  Generating…
-                </>
-              ) : (
-                "Generate"
-              )}
+              {profileLoading ? <Loader2 className="animate-spin" size={16} /> : null}
+              Generate Learner Profile
             </button>
-          </div>
-        </section>
-        </div>
-
-        {/* Generated results */}
-        <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Generated problems
-              </p>
-              <h2 className="text-lg font-bold text-slate-900">{resultsHeading}</h2>
-            </div>
-            {mode === "generate" && generateMeta && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                    generateMeta.source === "llm"
-                      ? "bg-violet-100 text-violet-800"
-                      : "bg-slate-200 text-slate-700"
-                  }`}
-                >
-                  {generateMeta.source === "llm" ? "LLM" : "Demo fallback"}
-                </span>
-                {generateMeta.source === "llm" && generateMeta.model && (
-                  <span
-                    className="text-[10px] text-slate-500 truncate max-w-[220px]"
-                    title={generateMeta.model}
-                  >
-                    {generateMeta.model}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {generated.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No problems yet. Choose a mode and click Generate to see samples here.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {generated.map((item, idx) => (
-                <div
-                  key={item.id}
-                  className="p-4 rounded-xl border border-slate-200 bg-slate-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      {item.mode === "generate"
-                        ? "LLM problem"
-                        : item.mode === "recommend"
-                        ? "Bank recommendation"
-                        : "Weak concept practice"}
-                    </p>
-                    <span className="text-[11px] text-slate-400">#{idx + 1}</span>
+            <button
+              type="button"
+              onClick={onGenerateExercise}
+              disabled={exerciseLoading}
+              className="w-full py-2.5 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {exerciseLoading ? <Loader2 className="animate-spin" size={16} /> : null}
+              Generate Adaptive Exercise
+            </button>
+            <button
+              type="button"
+              onClick={onRetrieveSimilar}
+              disabled={similarLoading}
+              className="w-full py-2.5 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {similarLoading ? <Loader2 className="animate-spin" size={16} /> : null}
+              Retrieve Similar Questions Top 5
+            </button>
+          </section>
+          <section className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Learner Profile</p>
+              {profileError ? <p className="text-sm text-rose-600">{profileError}</p> : null}
+              {!profileData ? (
+                <p className="text-sm text-slate-500">Generate learner profile to see results.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-800">{sanitizeDisplayText(profileData.user_readable_learning_profile.summary)}</p>
+                  <div className="space-y-2">
+                    {profileData.user_readable_learning_profile.dimension_breakdown.map((item, idx) => (
+                      <div key={`${item.dimension}-${idx}`} className="rounded-lg border border-slate-100 p-3">
+                        <p className="font-medium text-sm">{item.dimension}</p>
+                        <p className="text-sm text-slate-700">Observation: {sanitizeDisplayText(item.observation)}</p>
+                        <p className="text-sm text-slate-700">Evidence: {sanitizeDisplayText(item.evidence)}</p>
+                        <p className="text-sm text-slate-700">Action: {sanitizeDisplayText(item.action)}</p>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-sm font-semibold text-slate-900 mt-1">
-                    {item.title}
-                  </p>
-                  <p className="text-sm text-slate-700 mt-2 leading-relaxed">
-                    {item.stem}
-                  </p>
-                </div>
-              ))}
+                </>
+              )}
             </div>
-          )}
-        </section>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Adaptive Exercise</p>
+              {exerciseError ? <p className="text-sm text-rose-600">{exerciseError}</p> : null}
+              {!exerciseData ? (
+                <p className="text-sm text-slate-500">Generate adaptive exercise to see results.</p>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-slate-900">{sanitizeDisplayText(exerciseData.target_weak_point)}</p>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{sanitizeDisplayText(exerciseData.problem)}</p>
+                  <p className="text-sm text-slate-700"><span className="font-semibold">Standard answer:</span> {sanitizeDisplayText(exerciseData.standard_answer)}</p>
+                  <p className="text-sm text-slate-700"><span className="font-semibold">Hint:</span> {sanitizeDisplayText(exerciseData.hint)}</p>
+                  <p className="text-sm text-slate-700"><span className="font-semibold">Generation reason:</span> {sanitizeDisplayText(exerciseData.generation_reason)}</p>
+                  {!!overallReasons.length && (
+                    <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
+                      {overallReasons.map((r, i) => <li key={`${r}-${i}`}>{sanitizeDisplayText(r)}</li>)}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Similar Questions Top 5</p>
+              {similarError ? <p className="text-sm text-rose-600">{similarError}</p> : null}
+              {retrievalHint ? <p className="text-xs text-amber-700">{retrievalHint}</p> : null}
+              {!similarData.length ? (
+                <p className="text-sm text-slate-500">Retrieve similar questions to see results.</p>
+              ) : (
+                <div className="space-y-3">
+                  {similarData.map((item) => (
+                    <div key={item.question_id} className="p-3 rounded-lg border border-slate-100">
+                      <p className="text-sm font-medium text-slate-900">{sanitizeDisplayText(item.question)}</p>
+                      <p className="text-xs text-slate-500 mt-1">Similarity: {formatSimilarity(item.similarity_score)}</p>
+                      <p className="text-sm text-slate-700 mt-1"><span className="font-semibold">Answer:</span> {sanitizeDisplayText(Array.isArray(item.answer) ? item.answer.join(", ") : item.answer)}</p>
+                      <p className="text-sm text-slate-700 mt-1 line-clamp-4"><span className="font-semibold">Step-by-step solution:</span> {sanitizeDisplayText(item.step_by_step_solution_text) || "Unavailable"}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </main>
     </div>
   );
 }
-

@@ -4,26 +4,16 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 
 import { currentUser } from "@/lib/auth";
-import { isLlmConfigured } from "@/lib/llm/config";
-import { buildFallbackRecommendations } from "@/lib/personalized-courses/fallback-recommend";
-import { recommendCoursesWithLlm } from "@/lib/personalized-courses/llm-recommend";
+import {
+  FIXED_MATH_COURSE,
+  FIXED_MULTIMODAL_EMOTION,
+  FIXED_STUDENT_ID,
+} from "@/lib/personalized-courses/module3-knowledge";
+import { buildModule3DemoPayload, getDefaultFeedback } from "@/lib/personalized-courses/module3-analyzer";
 
-const bodySchema = z
-  .object({
-    direction: z.string().max(500).optional().default(""),
-    completedCourseNames: z.array(z.string().max(200)).max(20).default([]),
-    otherCourses: z.string().max(1000).optional().default(""),
-    evaluation: z.string().max(8000).optional().default(""),
-    suggestCount: z.number().int().min(1).max(4),
-  })
-  .refine(
-    (d) =>
-      d.direction.trim().length > 0 ||
-      d.evaluation.trim().length > 0 ||
-      d.completedCourseNames.length > 0 ||
-      d.otherCourses.trim().length > 0,
-    { message: "Add at least one of: direction, evaluation, completed courses, or other courses." }
-  );
+const bodySchema = z.object({
+  feedbackText: z.string().max(8000).optional(),
+});
 
 export async function POST(req: Request) {
   try {
@@ -44,37 +34,20 @@ export async function POST(req: Request) {
       );
     }
 
-    const input = parsed.data;
-
-    if (isLlmConfigured()) {
-      try {
-        const result = await recommendCoursesWithLlm({
-          direction: input.direction,
-          completedCourseNames: input.completedCourseNames,
-          otherCourses: input.otherCourses,
-          evaluation: input.evaluation,
-          suggestCount: input.suggestCount,
-        });
-        return NextResponse.json({
-          ...result,
-          source: "llm",
-          model: process.env.LLM_MODEL ?? null,
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error("[PERSONALIZED_COURSES] LLM failed, using fallback:", msg);
-      }
-    }
-
-    const fallback = buildFallbackRecommendations({
-      evaluation: input.evaluation,
-      suggestCount: input.suggestCount,
-    });
+    const feedbackText = parsed.data.feedbackText?.trim() || getDefaultFeedback();
+    const result = buildModule3DemoPayload(feedbackText);
 
     return NextResponse.json({
-      ...fallback,
-      source: "heuristic",
-      model: null,
+      source: "module3-rule-engine",
+      fixedStudent: {
+        studentId: FIXED_STUDENT_ID,
+        major: FIXED_MATH_COURSE,
+        multimodalEmotion: FIXED_MULTIMODAL_EMOTION,
+      },
+      input: {
+        feedbackText,
+      },
+      ...result,
     });
   } catch (error) {
     console.error("[PERSONALIZED_COURSES]", error);

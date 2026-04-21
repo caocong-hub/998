@@ -27,7 +27,7 @@ def main() -> None:
     print("python3 -m pip:", "OK" if m_pip_ok else f"FAIL {m_pip_err}")
     print()
     print("Install API deps with:")
-    print("  cd m4 && python3 -m pip install -r requirements.txt")
+    print("  cd m2 && python3 -m pip install -r requirements.txt")
     print("or: ./install-api-deps.sh")
 
 

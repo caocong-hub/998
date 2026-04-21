@@ -10,7 +10,7 @@
 ```bash
 cd lms-project
 cp .env.production.example .env.production.local
-# 填好生产值后（尤其 M4_API_URL）
+# 填好生产值后（尤其 M2_API_URL）
 set -a && source .env.production.local && set +a
 npm run preflight:release
 ```
@@ -20,7 +20,7 @@ npm run preflight:release
 - `npm run lint`
 - `npm run build`
 - `prisma validate`
-- `M4_API_URL/health` 且 `checkpoint_loaded=true`
+- `M2_API_URL/health` 且 `checkpoint_loaded=true`
 
 ## 1. 代码仓库与 Vercel
 
@@ -53,7 +53,7 @@ npm run preflight:release
 | `LLM_BASE_URL` | 仅 OpenAI 兼容网关需要；纯 Gemini 可不设 |
 | `LLM_PROVIDER` | 同时配置了 `LLM_BASE_URL` 且仍要用 Gemini 时设为 `gemini` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | 仅启用 Google 登录时需要 |
-| `M4_API_URL` | 可选；**多模态情绪识别**（见仓库 `m4/` FastAPI）。Vercel 仅运行 Node，需在**单独主机**上启动 `uvicorn server:app`（或 Docker），将公网/内网 URL 填到该变量，例如 `https://m4-api.example.com`。未配置时 LMS 情绪页会提示服务不可用。 |
+| `M2_API_URL` | 可选；**多模态情绪识别**（见仓库 `m2/` FastAPI）。Vercel 仅运行 Node，需在**单独主机**上启动 `uvicorn server:app`（或 Docker），将公网/内网 URL 填到该变量，例如 `https://m2-api.example.com`。未配置时 LMS 情绪页会提示服务不可用。 |
 
 部署后若修改了变量，需在 Vercel 对该部署 **Redeploy**。
 
