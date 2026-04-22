@@ -1,34 +1,27 @@
 import { NextResponse } from "next/server";
+import { asProxyError, ensureAuthed, parseJsonSafe, resolveModule1ApiBase } from "../_shared";
 
 export const dynamic = "force-dynamic";
-
-import { asProxyError, ensureAuthed, parseJsonSafe, resolveModule1ApiBase } from "../_shared";
 
 export async function POST(req: Request) {
   const user = await ensureAuthed();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
   const body = await req.json().catch(() => null);
-  const text = typeof body?.text === "string" ? body.text : "";
-  if (!text.trim()) return asProxyError(400, "text is required");
-
-  const payload = {
-    title: typeof body?.title === "string" ? body.title : "Imported Lesson",
-    text,
-    learner_feedback:
-      typeof body?.learner_feedback === "object" && body.learner_feedback ? body.learner_feedback : {},
-  };
+  if (!body || typeof body !== "object") {
+    return asProxyError(400, "Invalid module4_backflow body");
+  }
 
   const base = resolveModule1ApiBase();
   try {
-    const res = await fetch(`${base}/api/parse_lesson`, {
+    const res = await fetch(`${base}/api/module4_backflow`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
     const data = await parseJsonSafe(res);
     if (!res.ok) {
-      return asProxyError(res.status, "module1 parse_lesson failed", data);
+      return asProxyError(res.status, "module1 module4_backflow failed", data);
     }
     return NextResponse.json(data ?? {});
   } catch (error) {

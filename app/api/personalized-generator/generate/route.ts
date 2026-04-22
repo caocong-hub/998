@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { currentUser } from "@/lib/auth";
 import { runModule4Pipeline } from "@/lib/personalized-generator/module4-pipeline";
-import { baseBodySchema, buildModule4Input, normalizeModule4Result } from "../shared";
+import { buildModule4Input, fullModule4InputSchema, normalizeModule4Result } from "../shared";
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     }
 
     const json = await req.json().catch(() => null);
-    const parsed = baseBodySchema.safeParse(json);
+    const parsed = fullModule4InputSchema.safeParse(json);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid request body.", details: parsed.error.flatten() },

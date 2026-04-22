@@ -12,9 +12,22 @@ import {
 type ApiResponse = {
   ok: boolean;
   error: string | null;
+  source?: string;
+  fixedStudent?: { studentId: string; major: string; multimodalEmotion: string };
   input: { feedbackText: string };
-  analysis: { subject: string; features: string; courses: { name: string; desc: string }[] }[];
+  analysis: {
+    categoryKey?: string;
+    subject: string;
+    features: string;
+    courses: { name: string; desc: string }[];
+    matchedKeywords?: string[];
+  }[];
   recommendations: { name: string; desc: string }[];
+  explanation?: {
+    matchedCategory?: string | null;
+    matchedKeywords?: string[];
+    rule?: string;
+  };
 };
 
 export default function PersonalizedCoursesPage() {
@@ -196,6 +209,14 @@ export default function PersonalizedCoursesPage() {
                   </p>
                   <p className="text-sm text-slate-900 mt-1">{results.analysis[0]?.features}</p>
                 </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-xs text-slate-600 uppercase tracking-wide font-semibold">
+                    Matched Topic Keywords
+                  </p>
+                  <p className="text-sm text-slate-900 mt-1">
+                    {(results.analysis[0]?.matchedKeywords ?? []).join(", ") || "N/A"}
+                  </p>
+                </div>
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                   Sentiment Analysis Completed
                 </div>
@@ -221,6 +242,19 @@ export default function PersonalizedCoursesPage() {
 
             {results?.ok && results.recommendations.length > 0 ? (
               <div className="space-y-3">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                  <p>
+                    <span className="font-semibold">Matched Category:</span>{" "}
+                    {results.explanation?.matchedCategory ?? "N/A"}
+                  </p>
+                  <p className="mt-1">
+                    <span className="font-semibold">Rule:</span>{" "}
+                    {results.explanation?.rule ?? "keyword_match + sentiment_features + random_top3_courses"}
+                  </p>
+                  <p className="mt-1">
+                    <span className="font-semibold">Source:</span> {results.source ?? "module3-rule-engine"}
+                  </p>
+                </div>
                 {results.recommendations.map((course, index) => (
                   <div key={`${course.name}-${index}`} className="p-4 rounded-xl border border-slate-200 bg-slate-50">
                     <p className="text-sm font-semibold text-slate-900">

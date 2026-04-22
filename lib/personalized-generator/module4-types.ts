@@ -3,31 +3,60 @@ export type Module4Input = {
   session_id: string;
   student_profile: {
     grade?: string;
+    grade_level?: string;
+    learning_style?: string;
+    preferred_difficulty?: string;
+    historical_mastery?: Record<string, number>;
     long_term_strength?: string[];
     long_term_weakness?: string[];
     preference?: string;
     confidence_level?: string;
+    affective_baseline?: {
+      engagement?: number;
+      confidence?: number;
+    };
   };
   module1_to_module4: {
+    source_module?: string;
     lesson_title: string;
     target_node_id: string;
     node_type: string;
     node_title: string;
     node_content?: Record<string, unknown>;
+    decision_type?: string;
     learner_status?: string;
     learner_mastery?: number;
     difficulty?: number;
     knowledge_tags?: string[];
+    recent_error_tags?: string[];
+    recommended_actions?: string[];
+    supporting_node_ids?: string[];
   };
   question_records: Array<{
     exercise_id: string;
     from_practice_record?: {
       correctness?: boolean;
+      result?: string;
       error_tags?: string[];
+      attempt_logs?: Array<{
+        attempt_id?: number;
+        answer?: string;
+        is_correct?: boolean;
+        response_time?: number;
+      }>;
       completion?: { progress?: number };
-      exercise_difficulty_feedback?: { perceived_difficulty?: string };
+      exercise_difficulty_feedback?: {
+        assigned_difficulty?: number;
+        perceived_difficulty?: string;
+        next_recommended_difficulty?: number;
+      };
     };
-    module2_to_module4?: { state?: string };
+    module2_to_module4?: {
+      source_module?: string;
+      id?: string;
+      state?: string;
+      action?: string;
+    };
   }>;
 };
 

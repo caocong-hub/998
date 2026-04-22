@@ -1,339 +1,502 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Book, FileUp, Edit3, ChevronRight, ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Book, Loader2, RefreshCcw, Upload } from "lucide-react";
+import type {
+  AdaptivePlanItem,
+  ConceptDictionaryEntry,
+  ModuleConnection,
+  TeachingGraphNode,
+  TeachingGraphResponse,
+  WeaknessItem,
+} from "@/lib/teaching-path/module1-types";
 
-type KnowledgePoint = {
-  id: string;
-  title: string;
-  summary: string;
-  details: string;
-  type?: "Concept" | "Example" | "Practice";
-  teachingRole?:
-    | "Introduction"
-    | "Core Concept"
-    | "Reinforcement"
-    | "Review"
-    | "Application";
+const DEMO_TEXT = `Fractions are numbers that represent equal parts of a whole. We can compare fractions by finding common denominators and simplify by dividing numerator and denominator by the same number. In real contexts, fraction operations support sharing and measurement tasks.`;
+
+const DEFAULT_STATES = {
+  focus: 0.7,
+  confidence: 0.55,
+  frustration: 0.35,
+  engagement: 0.65,
+  correctness: 0.6,
+  completion: 0.5,
 };
-
-const MIN_CHARS = 50;
 
 export default function TeachingPathwayPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [view, setView] = useState<"input" | "result">("input");
-  const [inputText, setInputText] = useState("");
-  const [nodes, setNodes] = useState<KnowledgePoint[]>([]);
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [title, setTitle] = useState("Primary Mathematics Lesson");
+  const [inputText, setInputText] = useState(DEMO_TEXT);
+  const [jsonView, setJsonView] = useState(false);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [zoom, setZoom] = useState(1);
+  const [states, setStates] = useState(DEFAULT_STATES);
+  const [loadingKind, setLoadingKind] = useState<
+    "parse-lesson" | "parse-pdf" | "recompute" | "backflow" | "artifact" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
-  const [parseSource, setParseSource] = useState<"llm" | "heuristic" | null>(null);
-  const [parseModel, setParseModel] = useState<string | null>(null);
+  const [response, setResponse] = useState<TeachingGraphResponse | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string>("");
+  const [artifactPreview, setArtifactPreview] = useState<Record<string, unknown> | null>(null);
 
-  const selectedPoint = useMemo(() => {
-    if (nodes.length === 0) return null;
-    return nodes.find((p) => p.id === selectedId) ?? nodes[0];
-  }, [nodes, selectedId]);
+  const teachingGraph = useMemo(() => response?.teaching_graph ?? [], [response?.teaching_graph]);
+  const selectedNode = useMemo(
+    () => teachingGraph.find((n) => n.node_id === selectedNodeId) ?? teachingGraph[0],
+    [teachingGraph, selectedNodeId]
+  );
+  const conceptEntries = (response?.concept_dictionary?.entries ?? []) as ConceptDictionaryEntry[];
+  const weaknesses = (response?.weakness_summary ?? []) as WeaknessItem[];
+  const adaptivePlan = (response?.adaptive_plan ?? []) as AdaptivePlanItem[];
+  const module1ToModule4 = response?.module1_to_module4 as ModuleConnection | undefined;
+  const graphEdges = response?.knowledge_graph?.edges ?? [];
+  const graphNodes = response?.knowledge_graph?.nodes ?? [];
 
-  const handleGenerate = async () => {
-    const text = inputText.trim();
-    if (text.length < MIN_CHARS) return;
-    setLoading(true);
+  const filteredNodes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return teachingGraph.filter((node) => {
+      const hitFilter = typeFilter === "all" || node.type === typeFilter;
+      const hitSearch =
+        !q ||
+        node.title.toLowerCase().includes(q) ||
+        (node.content ?? "").toLowerCase().includes(q) ||
+        (node.overview ?? "").toLowerCase().includes(q);
+      return hitFilter && hitSearch;
+    });
+  }, [teachingGraph, search, typeFilter]);
+
+  const nodeTypeList = useMemo(() => {
+    return Array.from(new Set(teachingGraph.map((n) => n.type))).filter(Boolean);
+  }, [teachingGraph]);
+
+  const setData = (data: TeachingGraphResponse) => {
+    setResponse(data);
+    const first = data?.teaching_graph?.[0]?.node_id;
+    if (first) setSelectedNodeId(first);
+  };
+
+  async function postJson(url: string, body: unknown) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Request failed");
+    return data as TeachingGraphResponse;
+  }
+
+  const onBuildGraph = async () => {
+    setLoadingKind("parse-lesson");
     setError(null);
     try {
-      const res = await fetch("/api/teaching-path/parse", {
+      const data = await postJson("/api/teaching-path/parse-lesson", {
+        title,
+        text: inputText,
+        learner_feedback: states,
+      });
+      setData(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to build graph");
+    } finally {
+      setLoadingKind(null);
+    }
+  };
+
+  const onUploadPdf = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (!file) return;
+    setLoadingKind("parse-pdf");
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/teaching-path/parse-pdf", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        body: form,
         credentials: "include",
-        body: JSON.stringify({ text }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(
-          typeof data?.error === "string"
-            ? data.error
-            : res.status === 401
-            ? "Please sign in to generate a pathway."
-            : "Generation failed. Please try again."
-        );
-        return;
-      }
-      const list = data?.nodes as KnowledgePoint[] | undefined;
-      if (!Array.isArray(list) || list.length === 0) {
-        setError("No valid knowledge points returned. Try longer text with clearer paragraphs.");
-        return;
-      }
-      setNodes(list);
-      setSelectedId(list[0].id);
-      setParseSource(data?.source === "llm" ? "llm" : "heuristic");
-      setParseModel(typeof data?.model === "string" ? data.model : null);
-      setView("result");
-    } catch {
-      setError("Network error. Check your connection and try again.");
+      if (!res.ok) throw new Error(data?.error || "Failed to parse PDF");
+      setData(data as TeachingGraphResponse);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to parse PDF");
     } finally {
-      setLoading(false);
+      setLoadingKind(null);
     }
   };
 
-  const handlePickTxt = () => fileInputRef.current?.click();
-
-  const handleTxtFile = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".txt")) {
-      setError("Please choose a .txt file or copy text from your PDF into the box on the right.");
-      event.target.value = "";
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const t = typeof reader.result === "string" ? reader.result : "";
-      setInputText(t);
-      setError(null);
-    };
-    reader.onerror = () => setError("Failed to read the file.");
-    reader.readAsText(file, "UTF-8");
-    event.target.value = "";
-  };
-
-  const goBackToInput = () => {
-    setView("input");
+  const onRecompute = async () => {
+    if (!response) return;
+    setLoadingKind("recompute");
     setError(null);
+    try {
+      const data = await postJson("/api/teaching-path/adapt-path", {
+        graph_metadata: response.graph_metadata ?? {},
+        teaching_graph: response.teaching_graph ?? [],
+        learner_feedback: states,
+      });
+      setData(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Recompute failed");
+    } finally {
+      setLoadingKind(null);
+    }
   };
 
-  if (view === "input") {
-    return (
-      <div className="min-h-screen w-full bg-slate-50 flex flex-col">
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          accept=".txt,text/plain"
-          onChange={handleTxtFile}
-        />
-        <header className="px-8 py-6 bg-white border-b flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => window.history.back()}
-              className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition"
-              aria-label="Go back"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <div className="bg-blue-600 text-white p-2 rounded-lg">
-              <Book size={20} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
-                Teaching Pathway Architect
-              </p>
-              <h1 className="text-xl font-bold text-slate-900">
-                Build a teaching pathway from text
-              </h1>
-            </div>
-          </div>
-        </header>
+  const onBackflow = async () => {
+    if (!response) return;
+    setLoadingKind("backflow");
+    setError(null);
+    try {
+      const data = await postJson("/api/teaching-path/module4-backflow", {
+        graph_metadata: response.graph_metadata ?? {},
+        teaching_graph: response.teaching_graph ?? [],
+        learner_feedback: states,
+        module4_to_module1: response.module4_to_module1 ?? {},
+      });
+      setData(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "module4 backflow failed");
+    } finally {
+      setLoadingKind(null);
+    }
+  };
 
-        <main className="flex-1 flex flex-col items-center justify-center px-8 py-12">
-          {error && (
-            <div className="w-full max-w-5xl mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-              {error}
+  const onPreviewArtifacts = async () => {
+    const cacheKey = String(response?.graph_metadata?.cache_key ?? "");
+    if (!cacheKey) return;
+    setLoadingKind("artifact");
+    setError(null);
+    try {
+      const res = await fetch(`/api/teaching-path/artifact-preview?cache_key=${encodeURIComponent(cacheKey)}`, {
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "artifact preview failed");
+      setArtifactPreview(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "artifact preview failed");
+    } finally {
+      setLoadingKind(null);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <input ref={fileInputRef} type="file" accept="application/pdf" className="hidden" onChange={onUploadPdf} />
+      <header className="px-6 py-4 border-b bg-white flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => window.history.back()}
+            className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div className="p-2 rounded-lg bg-blue-600 text-white">
+            <Book size={18} />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold">Module1 Workbench</p>
+            <h1 className="text-lg font-bold text-slate-900">Teaching Pathway Planning</h1>
+          </div>
+        </div>
+        <div className="text-xs text-slate-500">
+          mode: <span className="font-semibold">{String(response?.graph_metadata?.generation_mode ?? "-")}</span>
+        </div>
+      </header>
+
+      <div className="p-6 grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-6">
+        <aside className="space-y-4">
+          <section className="rounded-2xl border bg-white p-4 space-y-3">
+            <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400">Input</p>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Lesson title"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              className="w-full min-h-32 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              placeholder="Paste lesson content"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={onBuildGraph}
+                className="rounded-lg bg-blue-600 text-white px-3 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-60"
+                disabled={Boolean(loadingKind)}
+              >
+                {loadingKind === "parse-lesson" ? <Loader2 size={14} className="inline animate-spin mr-1" /> : null}
+                Build Graph
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+                disabled={Boolean(loadingKind)}
+              >
+                <Upload size={14} className="inline mr-1" />
+                Parse PDF
+              </button>
+              <button
+                onClick={onRecompute}
+                className="rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+                disabled={!response || Boolean(loadingKind)}
+              >
+                <RefreshCcw size={14} className="inline mr-1" />
+                Recompute
+              </button>
+              <button
+                onClick={onBackflow}
+                className="rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"
+                disabled={!response || Boolean(loadingKind)}
+              >
+                Module4 Backflow
+              </button>
             </div>
-          )}
-          <div className="w-full max-w-5xl grid md:grid-cols-2 gap-8">
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm hover:shadow-lg transition-all duration-300 group">
-              <div className="flex flex-col items-center text-center gap-4">
-                <div className="p-4 rounded-2xl bg-slate-100 group-hover:bg-blue-50 transition">
-                  <FileUp size={44} className="text-slate-400 group-hover:text-blue-500" />
-                </div>
-                <h2 className="text-lg font-semibold text-slate-900">Source text</h2>
-                <p className="text-sm text-slate-500">
-                  For PDFs, copy the text into the box on the right. You can also load a UTF-8
-                  .txt file (at least {MIN_CHARS} characters before generating).
-                </p>
+            {error && <p className="text-xs text-rose-700">{error}</p>}
+          </section>
+
+          <section className="rounded-2xl border bg-white p-4 space-y-3">
+            <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400">Course Content</p>
+            <div className="text-xs rounded-lg bg-blue-50 border border-blue-100 p-2 text-blue-900">
+              Pre-class preparation node is inserted by module1 pipeline.
+            </div>
+            <div className="space-y-2 max-h-80 overflow-auto">
+              {teachingGraph.map((node) => (
                 <button
-                  type="button"
-                  onClick={handlePickTxt}
-                  disabled={loading}
-                  className="mt-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+                  key={node.node_id}
+                  onClick={() => setSelectedNodeId(node.node_id)}
+                  className={`w-full text-left rounded-lg border px-3 py-2 ${
+                    selectedNode?.node_id === node.node_id ? "border-blue-500 bg-blue-50" : "hover:bg-slate-50"
+                  }`}
                 >
-                  Choose .txt file
+                  <p className="text-sm font-semibold text-slate-900">
+                    {node.sequence_index}. {node.title}
+                  </p>
+                  <p className="text-xs text-slate-500">{node.type}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border bg-white p-4 space-y-2">
+            <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400">Learner State</p>
+            {Object.entries(states).map(([key, value]) => (
+              <label key={key} className="block text-xs text-slate-600">
+                {key}
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={value}
+                  onChange={(e) => setStates((prev) => ({ ...prev, [key]: Number(e.target.value) }))}
+                  className="w-full"
+                />
+              </label>
+            ))}
+            <div className="text-xs text-slate-500">
+              overall_mastery: {response?.learner_snapshot?.overall_mastery ?? "-"} | readiness:{" "}
+              {response?.learner_snapshot?.readiness ?? "-"}
+            </div>
+          </section>
+        </aside>
+
+        <main className="space-y-4">
+          <section className="rounded-2xl border bg-white p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400">Knowledge Graph</p>
+              <div className="flex items-center gap-2 text-xs">
+                Zoom
+                <input type="range" min={0.7} max={1.4} step={0.05} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
+              </div>
+            </div>
+            <div className="text-xs mb-2 text-slate-500">Legend: prerequisite_of / related_to / confusable_with / applied_in</div>
+            <div className="overflow-auto border rounded-lg p-3 bg-slate-50">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2" style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}>
+                {graphNodes.map((node) => (
+                  <button
+                    key={node.id}
+                    onClick={() => setSelectedNodeId(node.id)}
+                    className={`rounded-lg border px-3 py-2 text-left bg-white ${
+                      selectedNode?.node_id === node.id ? "border-blue-500" : "border-slate-200"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold">{node.label ?? node.title ?? node.id}</p>
+                    {node.node_type ? <p className="text-xs text-slate-500">{node.node_type}</p> : null}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">Node Detail</p>
+              {selectedNode ? (
+                <div className="space-y-2 text-sm">
+                  <p className="font-semibold text-slate-900">{selectedNode.title}</p>
+                  <p className="text-xs text-slate-500">{selectedNode.type}</p>
+                  <p>{selectedNode.content ?? selectedNode.overview ?? "-"}</p>
+                  <p><span className="font-semibold">Formula:</span> {selectedNode.formula ?? "-"}</p>
+                  <p><span className="font-semibold">Example:</span> {selectedNode.problem_text ?? "-"}</p>
+                  <p><span className="font-semibold">Practice Task:</span> {selectedNode.practice_prompt ?? "-"}</p>
+                  <p><span className="font-semibold">Checkpoint Goal:</span> {selectedNode.checkpoint_goal ?? "-"}</p>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">Build graph first.</p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">Recommended Exercises</p>
+              <div className="space-y-2 max-h-64 overflow-auto">
+                {(selectedNode?.recommended_exercises ?? []).map((item) => (
+                  <div key={item.exercise_id} className="rounded-lg border p-2 text-sm">
+                    <p className="font-semibold">{item.question}</p>
+                    <p className="text-xs text-slate-500">
+                      {[item.question_type, item.leaf_kc].filter(Boolean).join(" | ")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">Concept Dictionary</p>
+              <div className="space-y-2 max-h-64 overflow-auto">
+                {conceptEntries.map((entry) => (
+                  <div key={entry.concept_id} className="rounded-lg border p-2 text-sm">
+                    <p className="font-semibold">{entry.label}</p>
+                    <p className="text-xs text-slate-500">{entry.concept_id} | {entry.canonical_key ?? "-"}</p>
+                    <p className="text-xs mt-1">{entry.definition ?? "-"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-2xl border bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">Weakness Summary</p>
+              <div className="space-y-2 max-h-64 overflow-auto">
+                {weaknesses.map((item) => (
+                  <div key={item.node_id} className="rounded-lg border p-2 text-sm">
+                    <p className="font-semibold">{item.title}</p>
+                    <p className="text-xs text-amber-700">severity: {item.severity ?? "-"}</p>
+                    <p className="text-xs text-slate-500">{(item.evidence ?? []).join(" | ") || "-"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-2xl border bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">Adaptive Plan</p>
+              <div className="space-y-2 max-h-64 overflow-auto">
+                {adaptivePlan.map((item) => (
+                  <div key={item.action_id} className="rounded-lg border p-2 text-sm">
+                    <p className="font-semibold">{item.decision_type}</p>
+                    <p className="text-xs text-slate-600">{item.reason ?? "-"}</p>
+                    <p className="text-xs text-slate-500">target: {item.target_node_id}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-2xl border bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">Module4 Bridge</p>
+              <pre className="text-xs bg-slate-50 border rounded-lg p-2 overflow-auto max-h-48">
+                {JSON.stringify(module1ToModule4 ?? {}, null, 2)}
+              </pre>
+              <div className="mt-2 flex gap-2">
+                <a
+                  href={`/personalized-generator?payload=${encodeURIComponent(
+                    JSON.stringify(module1ToModule4 ?? {})
+                  )}`}
+                  className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
+                >
+                  Open Module4
+                </a>
+                <button
+                  onClick={() => navigator.clipboard.writeText(JSON.stringify(module1ToModule4 ?? {}, null, 2))}
+                  className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
+                >
+                  Copy Payload
                 </button>
               </div>
             </div>
+          </section>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col">
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-[0.2em] mb-4">
-                <Edit3 size={14} />
-                Paste text
-              </div>
-              <textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Paste lesson or textbook text (multiple paragraphs, separated by blank lines, work best)…"
-                className="flex-1 min-h-[180px] w-full border border-slate-100 rounded-xl p-4 text-slate-800 bg-slate-50 focus:bg-white focus:border-blue-200 focus:ring-2 focus:ring-blue-100 outline-none transition"
+          <section className="rounded-2xl border bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400">Detailed Viewer</p>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search nodes"
+                className="rounded-md border px-2 py-1 text-xs"
               />
-              <p className="mt-2 text-xs text-slate-500">
-                At least {MIN_CHARS} characters. With LLM configured, the server builds a structured
-                pathway; otherwise it splits by paragraphs and sentences (up to 8 points).
-              </p>
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={loading || inputText.trim().length < MIN_CHARS}
-                className="mt-4 w-full py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition disabled:bg-slate-200 disabled:text-slate-500 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="animate-spin" size={18} />
-                    Generating…
-                  </>
-                ) : (
-                  "Generate pathway"
-                )}
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-md border px-2 py-1 text-xs">
+                <option value="all">All types</option>
+                {nodeTypeList.map((tp) => (
+                  <option key={tp} value={tp}>
+                    {tp}
+                  </option>
+                ))}
+              </select>
+              <button className="rounded-md border px-2 py-1 text-xs" onClick={() => setJsonView((v) => !v)}>
+                {jsonView ? "Table View" : "Raw JSON"}
               </button>
             </div>
-          </div>
+            {jsonView ? (
+              <pre className="text-xs bg-slate-50 border rounded-lg p-3 overflow-auto max-h-72">
+                {JSON.stringify(response ?? {}, null, 2)}
+              </pre>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="rounded-lg border p-2 max-h-64 overflow-auto">
+                  {filteredNodes.map((node: TeachingGraphNode) => (
+                    <p key={node.node_id} className="text-xs py-1 border-b last:border-b-0">
+                      {node.sequence_index}. {node.title} ({node.type})
+                    </p>
+                  ))}
+                </div>
+                <div className="rounded-lg border p-2 max-h-64 overflow-auto">
+                  {graphEdges.map((edge, idx) => (
+                    <p key={`${edge.source}-${edge.target}-${idx}`} className="text-xs py-1 border-b last:border-b-0">
+                      {edge.source} --{edge.relation}--&gt; {edge.target}
+                      {edge.explanation ? ` | ${edge.explanation}` : ""}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl border bg-white p-4">
+            <p className="text-xs uppercase tracking-[0.2em] font-semibold text-slate-400 mb-2">Artifacts</p>
+            <div className="text-xs text-slate-600 mb-2">
+              {String(response?.graph_metadata?.artifact_paths?.join?.(" | ") ?? "No artifact paths yet")}
+            </div>
+            <button
+              onClick={onPreviewArtifacts}
+              disabled={!response?.graph_metadata?.cache_key || Boolean(loadingKind)}
+              className="rounded-lg border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 disabled:opacity-60"
+            >
+              Preview Artifacts
+            </button>
+            {artifactPreview ? (
+              <pre className="mt-2 text-xs bg-slate-50 border rounded-lg p-2 overflow-auto max-h-48">
+                {JSON.stringify(artifactPreview, null, 2)}
+              </pre>
+            ) : null}
+          </section>
         </main>
       </div>
-    );
-  }
-
-  if (!selectedPoint) {
-    return null;
-  }
-
-  return (
-    <div className="h-screen w-full grid grid-cols-[320px_1fr] bg-white">
-      <aside className="border-r border-slate-200 bg-slate-50 flex flex-col">
-        <div className="px-6 py-5 border-b border-slate-200">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-[0.2em]">
-            Knowledge Points
-          </p>
-          <h2 className="text-lg font-bold text-slate-900">Teaching Pathway</h2>
-          <p className="text-xs text-slate-500 mt-1">
-            Select a node to view details (generated on the server).
-          </p>
-          {parseSource && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                  parseSource === "llm"
-                    ? "bg-violet-100 text-violet-800"
-                    : "bg-slate-200 text-slate-700"
-                }`}
-              >
-                {parseSource === "llm" ? "LLM" : "Rule-based"}
-              </span>
-              {parseSource === "llm" && parseModel && (
-                <span className="text-[10px] text-slate-500 truncate max-w-[200px]" title={parseModel}>
-                  {parseModel}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {nodes.map((kp) => {
-            const isActive = kp.id === selectedId;
-            return (
-              <button
-                key={kp.id}
-                type="button"
-                onClick={() => setSelectedId(kp.id)}
-                className={`w-full text-left p-4 rounded-xl border transition flex items-center justify-between ${
-                  isActive
-                    ? "border-blue-600 bg-white shadow-sm"
-                    : "border-transparent bg-white hover:border-slate-200"
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900">{kp.title}</p>
-                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">{kp.summary}</p>
-                  {(kp.type || kp.teachingRole) && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {kp.type && (
-                        <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-800">
-                          {kp.type}
-                        </span>
-                      )}
-                      {kp.teachingRole && (
-                        <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
-                          {kp.teachingRole}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <ChevronRight
-                  size={16}
-                  className={`text-slate-300 shrink-0 ${isActive ? "text-blue-500" : ""}`}
-                />
-              </button>
-            );
-          })}
-        </div>
-        <div className="p-4 border-t border-slate-200 bg-white">
-          <button
-            type="button"
-            onClick={goBackToInput}
-            className="w-full py-2.5 text-sm font-semibold text-blue-600 border border-blue-100 rounded-lg hover:bg-blue-50 transition"
-          >
-            Back to edit text
-          </button>
-        </div>
-      </aside>
-
-      <main className="p-10 overflow-y-auto">
-        <div className="max-w-4xl space-y-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-              Teaching pathway
-            </p>
-            {parseSource === "llm" && (
-              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800">
-                LLM
-              </span>
-            )}
-            {parseSource === "heuristic" && (
-              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                Rule-based
-              </span>
-            )}
-            {selectedPoint.type && (
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-800">
-                {selectedPoint.type}
-              </span>
-            )}
-            {selectedPoint.teachingRole && (
-              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900">
-                {selectedPoint.teachingRole}
-              </span>
-            )}
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900">{selectedPoint.title}</h1>
-          <p className="text-base text-slate-600 leading-relaxed whitespace-pre-wrap">
-            {selectedPoint.details}
-          </p>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700 mb-2">
-                Summary
-              </p>
-              <p className="text-sm text-blue-900">{selectedPoint.summary}</p>
-            </div>
-            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 mb-2">
-                Next step
-              </p>
-              <p className="text-sm text-emerald-900">
-                Add examples, practice, or a quiz in your course to reinforce this point.
-              </p>
-            </div>
-          </div>
-        </div>
-      </main>
     </div>
   );
 }

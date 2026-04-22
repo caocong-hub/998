@@ -75,14 +75,24 @@ function calculusFallback(query: string, topk: number): SimilarQuestion[] {
 
 export async function retrieveTopKSimilarQuestions(
   query: string,
-  topk = 5
+  topk = 5,
+  context?: { targetConcept?: string; weakPoints?: string[]; knowledgeTags?: string[] }
 ): Promise<{ items: SimilarQuestion[]; source: "embedding-index" | "calculus-bank-fallback"; error?: string }> {
+  const enrichedQuery = [
+    query,
+    context?.targetConcept ?? "",
+    ...(context?.weakPoints ?? []),
+    ...(context?.knowledgeTags ?? []),
+  ]
+    .join(" ")
+    .trim();
+  const finalQuery = enrichedQuery || query;
   const index = await loadEmbeddingIndex();
   if (!index) {
-    return { items: calculusFallback(query, topk), source: "calculus-bank-fallback" };
+    return { items: calculusFallback(finalQuery, topk), source: "calculus-bank-fallback" };
   }
   try {
-    const qv = cheapVectorize(query);
+    const qv = cheapVectorize(finalQuery);
     const scored = index
       .map((it) => {
         const base = typeof it.question === "string" ? it.question : "";
@@ -100,7 +110,7 @@ export async function retrieveTopKSimilarQuestions(
     return { items: scored, source: "embedding-index" };
   } catch (error) {
     return {
-      items: calculusFallback(query, topk),
+      items: calculusFallback(finalQuery, topk),
       source: "calculus-bank-fallback",
       error: error instanceof Error ? error.message : String(error),
     };

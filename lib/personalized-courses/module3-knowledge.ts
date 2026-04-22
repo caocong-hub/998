@@ -1,5 +1,5 @@
 export const FIXED_STUDENT_ID = "stu_001";
-export const FIXED_MATH_COURSE = "University Mathematics";
+export const FIXED_MATH_COURSE = "Primary Mathematics";
 export const FIXED_MULTIMODAL_EMOTION = "Confused";
 
 export type Module3Course = {
@@ -14,136 +14,76 @@ export type Module3KnowledgeCategory = {
 };
 
 export const MATH_KNOWLEDGE_BASE: Record<string, Module3KnowledgeCategory> = {
-  linear_algebra: {
-    keywords: ["matrix", "linear algebra", "vector", "eigenvalue", "linear system", "determinant"],
-    subject: "Linear Algebra: Matrix & Vector Operations",
+  number_operations: {
+    keywords: ["addition", "subtraction", "multiplication", "division", "quick calculation", "number operations"],
+    subject: "Number & Operations",
     courses: [
-      { name: "Linear Algebra", desc: "Covers matrix algebra, linear systems, eigenvalues and determinants for beginners." },
-      { name: "Elementary Linear Algebra", desc: "Introductory linear algebra with rigorous mathematical proofs." },
-      { name: "Applied Linear Algebra", desc: "Practical linear algebra for scientific computing and math modeling." },
-      { name: "Linear Algebra for Data Science", desc: "Linear algebra foundations for machine learning and data mining." },
+      { name: "Multiplication Tables Mastery", desc: "Build fluency in multiplication facts with guided drills." },
+      { name: "Mixed Arithmetic Practice", desc: "Practice mixed addition, subtraction, multiplication, and division." },
+      { name: "Mental Addition and Subtraction", desc: "Improve speed and confidence in daily number operations." },
+      { name: "Division Strategy Workshop", desc: "Learn step-by-step division strategies and error correction." },
     ],
   },
-  single_calculus: {
-    keywords: ["single variable calculus", "limit", "derivative", "integral", "series"],
-    subject: "Single Variable Calculus: Limits & Integrals",
+  geometry: {
+    keywords: ["triangle", "rectangle", "circle", "angle", "shape", "geometry"],
+    subject: "Geometry",
     courses: [
-      { name: "Single Variable Calculus", desc: "Introduction to limits, derivatives, definite integrals and infinite series." },
-      { name: "Differential Calculus", desc: "In-depth derivative theory and optimization applications." },
-      { name: "Integral Calculus", desc: "Definite and indefinite integrals, area and volume applications." },
-      { name: "Infinite Sequences and Series", desc: "Convergence tests, power series and Taylor expansions." },
+      { name: "2D Shapes Fundamentals", desc: "Understand properties of common plane shapes." },
+      { name: "Angles and Symmetry Basics", desc: "Practice angle recognition and symmetry reasoning." },
+      { name: "Perimeter and Area Starter", desc: "Calculate perimeter and area through guided examples." },
+      { name: "Geometry Visual Reasoning", desc: "Strengthen spatial understanding with visual tasks." },
     ],
   },
-  multi_calculus: {
-    keywords: ["multivariable calculus", "partial derivative", "multiple integral", "vector calculus"],
-    subject: "Multivariable Calculus: Partial Derivatives & Vector Calculus",
+  measurement: {
+    keywords: ["length", "weight", "time", "money", "unit conversion", "measurement"],
+    subject: "Measurement",
     courses: [
-      { name: "Multivariable Calculus", desc: "Advanced calculus covering partial derivatives and multiple integrals." },
-      { name: "Vector Calculus", desc: "In-depth vector calculus and multivariable function analysis." },
-      { name: "Vector Analysis", desc: "Vector fields, divergence, curl and line integral theory." },
-      { name: "Multiple Integrals and Vector Fields", desc: "Multiple integration, Green theorem and Stokes theorem." },
+      { name: "Length and Distance in Daily Life", desc: "Use metric units to solve practical length problems." },
+      { name: "Weight and Capacity Essentials", desc: "Compare and convert weight and volume units." },
+      { name: "Time and Money Problem Solving", desc: "Solve time and money tasks with clear steps." },
+      { name: "Unit Conversion Practice", desc: "Master unit conversion with scaffolded exercises." },
     ],
   },
-  probability: {
-    keywords: ["probability", "expectation", "variance", "statistic", "modeling", "hypothesis testing"],
-    subject: "Probability & Statistics: Distribution & Statistical Testing",
+  statistics_probability: {
+    keywords: ["data", "chart", "table", "probability", "chance", "statistics"],
+    subject: "Statistics & Probability",
     courses: [
-      { name: "Intro to Probability", desc: "Fundamental probability theory and statistical data analysis." },
-      { name: "Mathematical Statistics", desc: "Theoretical statistics, estimation theory and hypothesis testing." },
-      { name: "Statistical Inference", desc: "Core statistical inference, point estimation and confidence intervals." },
-      { name: "Bayesian Statistics", desc: "Bayesian probability models and statistical decision theory." },
+      { name: "Reading Charts and Tables", desc: "Interpret bar charts, pictographs, and simple tables." },
+      { name: "Intro to Chance and Probability", desc: "Understand likely/unlikely events through experiments." },
+      { name: "Data Collection Basics", desc: "Collect and summarize classroom data effectively." },
+      { name: "Simple Probability Games", desc: "Apply probability concepts in interactive game contexts." },
     ],
   },
-  discrete_math: {
-    keywords: ["discrete", "logic", "proof", "set theory", "combinatorics", "graph theory"],
-    subject: "Discrete Mathematics: Logic, Combinatorics & Graph Theory",
+  word_problems: {
+    keywords: ["word problem", "story problem", "application", "real life problem", "multi-step"],
+    subject: "Word Problems",
     courses: [
-      { name: "Discrete Mathematics", desc: "Advanced logic, proof techniques, combinatorics and graph theory." },
-      { name: "Mathematical Logic", desc: "Propositional logic, predicate logic and formal proof systems." },
-      { name: "Graph Theory Fundamentals", desc: "Graphs, trees, networks and graph algorithm applications." },
-      { name: "Proof Techniques", desc: "Induction, contradiction and constructive proof strategies." },
+      { name: "One-Step Word Problem Training", desc: "Translate short stories into arithmetic operations." },
+      { name: "Two-Step Word Problem Practice", desc: "Solve structured two-step real-life problems." },
+      { name: "Model Drawing for Word Problems", desc: "Use bar models to represent quantities and relations." },
+      { name: "Word Problem Error Analysis", desc: "Identify common mistakes and fix reasoning gaps." },
     ],
   },
-  ode: {
-    keywords: ["differential equation", "ode", "ordinary differential equation", "dynamic system"],
-    subject: "Ordinary Differential Equations: Modeling & Solutions",
+  mental_math: {
+    keywords: ["mental math", "quick math", "fast calculation", "estimation", "number sense"],
+    subject: "Mental Math",
     courses: [
-      { name: "Differential Equations", desc: "Core ordinary differential equations and dynamic system modeling." },
-      { name: "Linear Differential Equations", desc: "Linear ODEs, homogeneous and non-homogeneous solutions." },
-      { name: "Nonlinear ODEs", desc: "Nonlinear ordinary differential equations and stability analysis." },
-      { name: "Laplace Transforms and ODEs", desc: "Laplace transform methods for solving differential equations." },
-    ],
-  },
-  complex: {
-    keywords: ["complex function", "complex analysis", "complex variable", "residue"],
-    subject: "Complex Analysis: Complex Functions & Residue Theory",
-    courses: [
-      { name: "Complex Analysis", desc: "Fundamental complex function theory and residue calculation methods." },
-      { name: "Complex Variables", desc: "In-depth complex analysis for advanced university mathematics." },
-      { name: "Residue Theory and Applications", desc: "Residue theorem, contour integration and complex integration." },
-      { name: "Complex Integration", desc: "Cauchy theorem and integral formulas in practice." },
-    ],
-  },
-  numerical: {
-    keywords: ["numerical analysis", "numerical method", "approximation", "computation math"],
-    subject: "Numerical Analysis: Computational Methods & Approximation",
-    courses: [
-      { name: "Numerical Methods", desc: "Core numerical computation and mathematical approximation algorithms." },
-      { name: "Numerical Linear Algebra", desc: "Numerical methods for matrix algebra and linear systems." },
-      { name: "Approximation Theory", desc: "Function approximation, interpolation and polynomial fitting." },
-      { name: "Scientific Computing", desc: "Numerical analysis for scientific simulation and computation." },
-    ],
-  },
-  abstract_algebra: {
-    keywords: ["abstract algebra", "group theory", "ring theory", "field theory"],
-    subject: "Abstract Algebra: Group, Ring & Field Theory",
-    courses: [
-      { name: "Abstract Algebra", desc: "Fundamental group theory, ring theory and field theory concepts." },
-      { name: "Group Theory Fundamentals", desc: "Group axioms, subgroups, homomorphisms and group actions." },
-      { name: "Ring and Field Theory", desc: "Ring structures, integral domains, fields and polynomial rings." },
-      { name: "Modern Algebra", desc: "Abstract algebra with applications to number theory and coding." },
-    ],
-  },
-  math_analysis: {
-    keywords: ["mathematical analysis", "real analysis", "analysis", "convergence"],
-    subject: "Mathematical Analysis: Real Analysis & Convergence",
-    courses: [
-      { name: "Real Analysis", desc: "Core mathematical analysis and real number system theory." },
-      { name: "Math Analysis Foundations", desc: "Rigorous analysis for pure and applied mathematics students." },
-      { name: "Convergence Theory", desc: "Sequence, function and series convergence in analysis." },
-      { name: "Measure Theory", desc: "Measure theory foundations for modern mathematical analysis." },
-    ],
-  },
-  operations_research: {
-    keywords: ["operations research", "optimization", "linear programming", "game theory"],
-    subject: "Operations Research: Optimization & Linear Programming",
-    courses: [
-      { name: "Operations Research", desc: "Linear programming, optimization and game theory applications." },
-      { name: "Optimization Methods", desc: "Practical optimization methods for engineering and management." },
-      { name: "Linear Programming", desc: "Simplex method, duality theory and practical LP modeling." },
-      { name: "Network Optimization", desc: "Network flow, shortest path and transportation optimization." },
-    ],
-  },
-  advanced_math: {
-    keywords: ["advanced math", "higher mathematics", "multivariable", "advanced calculus"],
-    subject: "Advanced Mathematics: Integrated University Math",
-    courses: [
-      { name: "Higher Mathematics", desc: "Comprehensive advanced math covering core university topics." },
-      { name: "Advanced Math Calculus", desc: "Integrated advanced math for university science and engineering." },
-      { name: "Advanced Math Foundations", desc: "Complete advanced mathematics course for all majors." },
-      { name: "Higher Math Applications", desc: "Real-world applications of advanced mathematics in science." },
+      { name: "Mental Calculation Warmups", desc: "Daily short drills for fast and accurate mental math." },
+      { name: "Estimation and Number Sense", desc: "Develop flexible number sense and approximation skills." },
+      { name: "Fast Facts Challenge", desc: "Improve recall speed for core arithmetic facts." },
+      { name: "Mental Strategy Toolkit", desc: "Practice decomposition and compensation strategies." },
     ],
   },
 };
 
 export const DEMO_FEEDBACKS = [
-  "Linear Algebra matrix operations are difficult, I am very confused about vector calculations",
-  "Calculus limits are not difficult, I can understand them easily",
-  "Probability expectation is never easy, I always feel frustrated",
-  "Complex function analysis is hard, residue calculation makes me confused",
-  "Discrete math proofs are not boring, I enjoy learning them clearly",
-  "ODEs are never complicated, the steps are straightforward",
-  "Abstract algebra group theory is tough, I cannot understand ring theory concepts",
-  "Multivariable calculus partial derivatives are good, I can solve them independently",
-  "Advanced math integrals are hard, I need to learn foundational calculus again",
+  "Multiplication tables are difficult, I am very confused about quick calculation",
+  "Geometry shapes are not difficult, I can understand them easily",
+  "Unit conversion is never easy, I always feel frustrated",
+  "Probability in simple games is hard, I feel confused when comparing chances",
+  "Word problems are not boring, I can solve them clearly with model drawing",
+  "Mental math estimation is straightforward and good for me",
+  "Measurement with time and money is tough, I need more guided practice",
+  "Statistics charts are easy, I can read them well",
+  "Division in number operations is complicated, I feel frustrated",
 ];

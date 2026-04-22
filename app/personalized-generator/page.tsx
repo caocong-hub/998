@@ -8,13 +8,27 @@ import type {
   UpdatedLearnerProfile,
 } from "@/lib/personalized-generator/module4-types";
 
-type ProfileResponse = { updated_learner_profile?: UpdatedLearnerProfile };
+type ProfileResponse = {
+  updated_learner_profile?: UpdatedLearnerProfile;
+  meta?: { profile_source?: "llm" | "rule" };
+};
 type ExerciseResponse = {
   generated_adaptive_exercises?: AdaptiveExercise[];
   overall_generation_reason?: { why_these_exercises: string[] };
+  meta?: { exercise_source?: "llm" | "rule" };
 };
 type SimilarResponse = {
   similar_questions_top5?: SimilarQuestion[];
+  retrieval_context?: {
+    query_used?: string;
+    source?: "embedding-index" | "calculus-bank-fallback";
+    error?: string;
+    features_used?: {
+      target_concept?: string;
+      weak_points?: string[];
+      knowledge_tags?: string[];
+    };
+  };
 };
 
 function sanitizeDisplayText(raw: string | undefined | null): string {
@@ -39,14 +53,17 @@ export default function PersonalizedGeneratorPage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<UpdatedLearnerProfile | null>(null);
+  const [profileSource, setProfileSource] = useState<"llm" | "rule" | null>(null);
   const [exerciseLoading, setExerciseLoading] = useState(false);
   const [exerciseError, setExerciseError] = useState<string | null>(null);
   const [exerciseData, setExerciseData] = useState<AdaptiveExercise | null>(null);
+  const [exerciseSource, setExerciseSource] = useState<"llm" | "rule" | null>(null);
   const [overallReasons, setOverallReasons] = useState<string[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
   const [similarError, setSimilarError] = useState<string | null>(null);
   const [similarData, setSimilarData] = useState<SimilarQuestion[]>([]);
   const [retrievalHint, setRetrievalHint] = useState<string | null>(null);
+  const [retrievalContext, setRetrievalContext] = useState<SimilarResponse["retrieval_context"] | null>(null);
 
   const profile = useMemo(
     () => ({
@@ -86,6 +103,7 @@ export default function PersonalizedGeneratorPage() {
         return;
       }
       setProfileData(res.data.updated_learner_profile);
+      setProfileSource(res.data.meta?.profile_source ?? null);
     } catch {
       setProfileError("Network error while generating learner profile.");
     } finally {
@@ -105,6 +123,7 @@ export default function PersonalizedGeneratorPage() {
       }
       setExerciseData(first);
       setOverallReasons(res.data?.overall_generation_reason?.why_these_exercises ?? []);
+      setExerciseSource(res.data?.meta?.exercise_source ?? null);
     } catch {
       setExerciseError("Network error while generating adaptive exercise.");
     } finally {
@@ -126,6 +145,7 @@ export default function PersonalizedGeneratorPage() {
         return;
       }
       setSimilarData(res.data.similar_questions_top5);
+      setRetrievalContext(res.data.retrieval_context ?? null);
       setRetrievalHint(!query ? "No generated exercise found, retrieval used fallback query." : null);
     } catch {
       setSimilarError("Network error while retrieving similar questions.");
@@ -205,8 +225,62 @@ export default function PersonalizedGeneratorPage() {
           </section>
           <section className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">User Features</p>
+              {!profileData ? (
+                <p className="text-sm text-slate-500">Generate learner profile to display user features.</p>
+              ) : (
+                <div className="space-y-2 text-sm text-slate-700">
+                  <p>
+                    <span className="font-semibold">Learner status:</span>{" "}
+                    {sanitizeDisplayText(profileData.learner_status) || "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Learner mastery:</span>{" "}
+                    {typeof profileData.learner_mastery === "number" ? profileData.learner_mastery : "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Weak points:</span>{" "}
+                    {profileData.weak_points.length
+                      ? profileData.weak_points.map((w) => sanitizeDisplayText(w.concept)).join(", ")
+                      : "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Affective states:</span>{" "}
+                    {profileData.affective_state_summary.observed_states.length
+                      ? profileData.affective_state_summary.observed_states.join(", ")
+                      : "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Risk level:</span>{" "}
+                    {sanitizeDisplayText(profileData.affective_state_summary.risk_level) || "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Recommended difficulty:</span>{" "}
+                    {profileData.adaptation_strategy.recommended_difficulty ?? "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Next step:</span>{" "}
+                    {sanitizeDisplayText(profileData.adaptation_strategy.next_step) || "N/A"}
+                  </p>
+                  {!!overallReasons.length && (
+                    <div className="pt-2">
+                      <p className="font-semibold">Decision rationale:</p>
+                      <ul className="list-disc list-inside text-sm text-slate-700 space-y-1 mt-1">
+                        {overallReasons.map((r, i) => (
+                          <li key={`feature-reason-${i}`}>{sanitizeDisplayText(r)}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Learner Profile</p>
               {profileError ? <p className="text-sm text-rose-600">{profileError}</p> : null}
+              {profileSource ? (
+                <p className="text-xs text-slate-500">Profile source: {profileSource.toUpperCase()}</p>
+              ) : null}
               {!profileData ? (
                 <p className="text-sm text-slate-500">Generate learner profile to see results.</p>
               ) : (
@@ -228,6 +302,9 @@ export default function PersonalizedGeneratorPage() {
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Adaptive Exercise</p>
               {exerciseError ? <p className="text-sm text-rose-600">{exerciseError}</p> : null}
+              {exerciseSource ? (
+                <p className="text-xs text-slate-500">Exercise source: {exerciseSource.toUpperCase()}</p>
+              ) : null}
               {!exerciseData ? (
                 <p className="text-sm text-slate-500">Generate adaptive exercise to see results.</p>
               ) : (
@@ -237,11 +314,6 @@ export default function PersonalizedGeneratorPage() {
                   <p className="text-sm text-slate-700"><span className="font-semibold">Standard answer:</span> {sanitizeDisplayText(exerciseData.standard_answer)}</p>
                   <p className="text-sm text-slate-700"><span className="font-semibold">Hint:</span> {sanitizeDisplayText(exerciseData.hint)}</p>
                   <p className="text-sm text-slate-700"><span className="font-semibold">Generation reason:</span> {sanitizeDisplayText(exerciseData.generation_reason)}</p>
-                  {!!overallReasons.length && (
-                    <ul className="list-disc list-inside text-sm text-slate-700 space-y-1">
-                      {overallReasons.map((r, i) => <li key={`${r}-${i}`}>{sanitizeDisplayText(r)}</li>)}
-                    </ul>
-                  )}
                 </>
               )}
             </div>
@@ -249,6 +321,19 @@ export default function PersonalizedGeneratorPage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Similar Questions Top 5</p>
               {similarError ? <p className="text-sm text-rose-600">{similarError}</p> : null}
               {retrievalHint ? <p className="text-xs text-amber-700">{retrievalHint}</p> : null}
+              {retrievalContext ? (
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600 space-y-1">
+                  <p>Retrieval source: {retrievalContext.source ?? "N/A"}</p>
+                  <p>Query used: {sanitizeDisplayText(retrievalContext.query_used)}</p>
+                  {retrievalContext.features_used ? (
+                    <p>
+                      Features: concept={sanitizeDisplayText(retrievalContext.features_used.target_concept)}; weak=
+                      {(retrievalContext.features_used.weak_points ?? []).join(", ") || "N/A"}; tags=
+                      {(retrievalContext.features_used.knowledge_tags ?? []).join(", ") || "N/A"}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               {!similarData.length ? (
                 <p className="text-sm text-slate-500">Retrieve similar questions to see results.</p>
               ) : (

@@ -19,9 +19,11 @@ const VALID_SENTIMENT_WORDS = [
 ];
 
 export type Module3AnalysisResult = {
+  categoryKey: string;
   subject: string;
   features: string;
   courses: Module3Course[];
+  matchedKeywords: string[];
 };
 
 export function extractSentimentFeatures(text: string): string[] {
@@ -72,13 +74,16 @@ export function analyzeFeedback(text: string): Module3AnalysisResult[] {
   const lowerText = text.toLowerCase();
   const features = extractSentimentFeatures(text).join(", ");
 
-  for (const category of Object.values(MATH_KNOWLEDGE_BASE)) {
-    if (category.keywords.some((keyword) => lowerText.includes(keyword))) {
+  for (const [categoryKey, category] of Object.entries(MATH_KNOWLEDGE_BASE)) {
+    const matchedKeywords = category.keywords.filter((keyword) => lowerText.includes(keyword));
+    if (matchedKeywords.length > 0) {
       return [
         {
+          categoryKey,
           subject: category.subject,
           features,
           courses: pickRandomCourses(category.courses, 3),
+          matchedKeywords,
         },
       ];
     }
@@ -104,6 +109,11 @@ export function buildModule3DemoPayload(feedbackText: string) {
     error: null,
     analysis,
     recommendations: analysis[0]?.courses ?? [],
+    explanation: {
+      matchedCategory: analysis[0]?.categoryKey ?? null,
+      matchedKeywords: analysis[0]?.matchedKeywords ?? [],
+      rule: "keyword_match + sentiment_feature_extraction + random_top3_courses",
+    },
   };
 }
 

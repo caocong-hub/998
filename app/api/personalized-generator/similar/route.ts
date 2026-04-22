@@ -3,14 +3,17 @@ import { z } from "zod";
 
 import { currentUser } from "@/lib/auth";
 import { retrieveTopKSimilarQuestions } from "@/lib/personalized-generator/module4-retrieval";
-import { baseBodySchema, buildModule4Input } from "../shared";
+import { buildModule4Input, fullModule4InputSchema } from "../shared";
 import { runModule4Pipeline } from "@/lib/personalized-generator/module4-pipeline";
 
 export const dynamic = "force-dynamic";
 
-const similarBodySchema = baseBodySchema.extend({
-  query: z.string().max(2000).optional(),
-});
+const similarBodySchema = z.intersection(
+  fullModule4InputSchema,
+  z.object({
+    query: z.string().max(2000).optional(),
+  })
+);
 
 export async function POST(req: Request) {
   try {
@@ -34,13 +37,26 @@ export async function POST(req: Request) {
       query = pipeline.generated_adaptive_exercises?.[0]?.problem ?? "guided practice";
     }
 
-    const retrieval = await retrieveTopKSimilarQuestions(query, 5);
+    const module4Input = buildModule4Input(user.id, parsed.data);
+    const retrievalFeatures = {
+      target_concept: module4Input.module1_to_module4.node_title,
+      weak_points: module4Input.question_records
+        .flatMap((r) => r.from_practice_record?.error_tags ?? [])
+        .slice(0, 5),
+      knowledge_tags: module4Input.module1_to_module4.knowledge_tags ?? [],
+    };
+    const retrieval = await retrieveTopKSimilarQuestions(query, 5, {
+      targetConcept: retrievalFeatures.target_concept,
+      weakPoints: retrievalFeatures.weak_points,
+      knowledgeTags: retrievalFeatures.knowledge_tags,
+    });
     return NextResponse.json({
       similar_questions_top5: retrieval.items ?? [],
       retrieval_context: {
         query_used: query,
         source: retrieval.source,
         error: retrieval.error,
+        features_used: retrievalFeatures,
       },
     });
   } catch (error) {
