@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import type {
   AdaptiveExercise,
   SimilarQuestion,
@@ -50,6 +50,7 @@ function formatSimilarity(score: number | undefined): string {
 
 export default function PersonalizedGeneratorPage() {
   const [topic, setTopic] = useState("");
+  const hasAutoLoadedProfileRef = useRef(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<UpdatedLearnerProfile | null>(null);
@@ -81,6 +82,52 @@ export default function PersonalizedGeneratorPage() {
   );
 
   const requestBody = useMemo(() => ({ profile, topic: topic.trim() || undefined }), [profile, topic]);
+  const userFeatureItems = useMemo(() => {
+    if (!profileData) return [] as Array<{ label: string; value: string }>;
+    const pairs: Array<{ label: string; value: string }> = [
+      {
+        label: "Learner status",
+        value: sanitizeDisplayText(profileData.learner_status),
+      },
+      {
+        label: "Learner mastery",
+        value:
+          typeof profileData.learner_mastery === "number"
+            ? String(profileData.learner_mastery)
+            : "",
+      },
+      {
+        label: "Weak points",
+        value: profileData.weak_points
+          .map((w) => sanitizeDisplayText(w.concept))
+          .filter(Boolean)
+          .join(", "),
+      },
+      {
+        label: "Affective states",
+        value: profileData.affective_state_summary.observed_states
+          .map((s) => sanitizeDisplayText(s))
+          .filter(Boolean)
+          .join(", "),
+      },
+      {
+        label: "Risk level",
+        value: sanitizeDisplayText(profileData.affective_state_summary.risk_level),
+      },
+      {
+        label: "Recommended difficulty",
+        value:
+          profileData.adaptation_strategy.recommended_difficulty != null
+            ? String(profileData.adaptation_strategy.recommended_difficulty)
+            : "",
+      },
+      {
+        label: "Next step",
+        value: sanitizeDisplayText(profileData.adaptation_strategy.next_step),
+      },
+    ];
+    return pairs.filter((item) => item.value);
+  }, [profileData]);
 
   async function postJson<T>(url: string, body: unknown) {
     const res = await fetch(url, {
@@ -93,7 +140,7 @@ export default function PersonalizedGeneratorPage() {
     return { ok: res.ok, status: res.status, data };
   }
 
-  const onGenerateProfile = async () => {
+  const onGenerateProfile = useCallback(async () => {
     setProfileLoading(true);
     setProfileError(null);
     try {
@@ -109,7 +156,13 @@ export default function PersonalizedGeneratorPage() {
     } finally {
       setProfileLoading(false);
     }
-  };
+  }, [requestBody]);
+
+  useEffect(() => {
+    if (hasAutoLoadedProfileRef.current) return;
+    hasAutoLoadedProfileRef.current = true;
+    void onGenerateProfile();
+  }, [onGenerateProfile]);
 
   const onGenerateExercise = async () => {
     setExerciseLoading(true);
@@ -178,7 +231,7 @@ export default function PersonalizedGeneratorPage() {
           </div>
         </div>
       </header>
-      <main className="px-8 py-8 w-full max-w-7xl mx-auto">
+      <main className="px-4 md:px-6 py-8 w-full max-w-[1200px] mx-auto">
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
           <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-4 h-fit">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Actions</p>
@@ -195,15 +248,39 @@ export default function PersonalizedGeneratorPage() {
                 className="w-full rounded-xl border border-slate-200 p-3 text-sm text-slate-800"
               />
             </div>
-            <button
-              type="button"
-              onClick={onGenerateProfile}
-              disabled={profileLoading}
-              className="w-full py-2.5 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {profileLoading ? <Loader2 className="animate-spin" size={16} /> : null}
-              Generate Learner Profile
-            </button>
+            <div className="pt-2 space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                User Features
+              </p>
+              {!profileData ? (
+                <p className="text-xs text-slate-500">
+                  Auto loading profile...
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {userFeatureItems.map((item) => (
+                      <div key={item.label} className="rounded-lg border border-slate-100 p-2">
+                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                          {item.label}
+                        </p>
+                        <p className="text-sm text-slate-800 mt-1 break-words">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {!!overallReasons.length && (
+                    <div className="pt-1">
+                      <p className="text-xs font-semibold text-slate-600">Decision rationale</p>
+                      <ul className="list-disc list-inside text-xs text-slate-700 space-y-1 mt-1">
+                        {overallReasons.map((r, i) => (
+                          <li key={`feature-reason-${i}`}>{sanitizeDisplayText(r)}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
             <button
               type="button"
               onClick={onGenerateExercise}
@@ -225,64 +302,25 @@ export default function PersonalizedGeneratorPage() {
           </section>
           <section className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">User Features</p>
-              {!profileData ? (
-                <p className="text-sm text-slate-500">Generate learner profile to display user features.</p>
-              ) : (
-                <div className="space-y-2 text-sm text-slate-700">
-                  <p>
-                    <span className="font-semibold">Learner status:</span>{" "}
-                    {sanitizeDisplayText(profileData.learner_status) || "N/A"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Learner mastery:</span>{" "}
-                    {typeof profileData.learner_mastery === "number" ? profileData.learner_mastery : "N/A"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Weak points:</span>{" "}
-                    {profileData.weak_points.length
-                      ? profileData.weak_points.map((w) => sanitizeDisplayText(w.concept)).join(", ")
-                      : "N/A"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Affective states:</span>{" "}
-                    {profileData.affective_state_summary.observed_states.length
-                      ? profileData.affective_state_summary.observed_states.join(", ")
-                      : "N/A"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Risk level:</span>{" "}
-                    {sanitizeDisplayText(profileData.affective_state_summary.risk_level) || "N/A"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Recommended difficulty:</span>{" "}
-                    {profileData.adaptation_strategy.recommended_difficulty ?? "N/A"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Next step:</span>{" "}
-                    {sanitizeDisplayText(profileData.adaptation_strategy.next_step) || "N/A"}
-                  </p>
-                  {!!overallReasons.length && (
-                    <div className="pt-2">
-                      <p className="font-semibold">Decision rationale:</p>
-                      <ul className="list-disc list-inside text-sm text-slate-700 space-y-1 mt-1">
-                        {overallReasons.map((r, i) => (
-                          <li key={`feature-reason-${i}`}>{sanitizeDisplayText(r)}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Learner Profile</p>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Profile</p>
+                <button
+                  type="button"
+                  onClick={onGenerateProfile}
+                  disabled={profileLoading}
+                  className="inline-flex items-center justify-center rounded-md border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+                  aria-label="Refresh profile"
+                  title="Refresh profile"
+                >
+                  {profileLoading ? <Loader2 className="animate-spin" size={14} /> : <RotateCcw size={14} />}
+                </button>
+              </div>
               {profileError ? <p className="text-sm text-rose-600">{profileError}</p> : null}
               {profileSource ? (
                 <p className="text-xs text-slate-500">Profile source: {profileSource.toUpperCase()}</p>
               ) : null}
               {!profileData ? (
-                <p className="text-sm text-slate-500">Generate learner profile to see results.</p>
+                <p className="text-sm text-slate-500">Profile is loading automatically. You can refresh manually if needed.</p>
               ) : (
                 <>
                   <p className="text-sm text-slate-800">{sanitizeDisplayText(profileData.user_readable_learning_profile.summary)}</p>

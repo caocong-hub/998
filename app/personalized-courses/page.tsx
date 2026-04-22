@@ -31,8 +31,10 @@ type ApiResponse = {
 };
 
 export default function PersonalizedCoursesPage() {
+  const defaultFeedback = DEMO_FEEDBACKS[0] ?? "";
   const [selectedFeedback, setSelectedFeedback] = useState(DEMO_FEEDBACKS[0] ?? "");
   const [feedbackText, setFeedbackText] = useState(DEMO_FEEDBACKS[0] ?? "");
+  const [emotion, setEmotion] = useState(FIXED_MULTIMODAL_EMOTION);
   const [results, setResults] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +49,7 @@ export default function PersonalizedCoursesPage() {
         credentials: "include",
         body: JSON.stringify({
           feedbackText: feedbackText.trim(),
+          emotion: emotion.trim(),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -64,7 +67,15 @@ export default function PersonalizedCoursesPage() {
         setError("Invalid response from server.");
         return;
       }
-      setResults(data as ApiResponse);
+      const normalized = data as ApiResponse;
+      setResults({
+        ...normalized,
+        fixedStudent: {
+          studentId: normalized.fixedStudent?.studentId ?? FIXED_STUDENT_ID,
+          major: normalized.fixedStudent?.major ?? FIXED_MATH_COURSE,
+          multimodalEmotion: emotion.trim() || normalized.fixedStudent?.multimodalEmotion || FIXED_MULTIMODAL_EMOTION,
+        },
+      });
     } catch {
       setError("Network error. Check your connection and try again.");
     } finally {
@@ -75,8 +86,9 @@ export default function PersonalizedCoursesPage() {
   const handleClear = () => {
     setError(null);
     setResults(null);
-    setSelectedFeedback(DEMO_FEEDBACKS[0] ?? "");
-    setFeedbackText(DEMO_FEEDBACKS[0] ?? "");
+    setSelectedFeedback(defaultFeedback);
+    setFeedbackText(defaultFeedback);
+    setEmotion(FIXED_MULTIMODAL_EMOTION);
   };
 
   return (
@@ -104,7 +116,7 @@ export default function PersonalizedCoursesPage() {
         </div>
       </header>
 
-      <main className="px-8 py-8 w-full max-w-7xl mx-auto space-y-6">
+      <main className="px-4 md:px-6 py-8 w-full max-w-[1200px] mx-auto space-y-6">
         {error && (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
             {error}
@@ -130,24 +142,23 @@ export default function PersonalizedCoursesPage() {
             </div>
             <div className="space-y-3">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Multimodal Emotion</p>
-              <p className="text-sm text-slate-900">{FIXED_MULTIMODAL_EMOTION}</p>
+              <input
+                value={emotion}
+                onChange={(e) => setEmotion(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800 focus:bg-white focus:border-emerald-200 focus:ring-2 focus:ring-emerald-100 outline-none transition"
+                placeholder="e.g. Confused, Frustrated, Neutral"
+              />
             </div>
             <div className="space-y-3">
-              <label className="text-xs font-semibold text-slate-600">Select feedback</label>
-              <select
+              <label className="text-xs font-semibold text-slate-600">Feedback</label>
+              <input
                 value={selectedFeedback}
                 onChange={(e) => {
                   setSelectedFeedback(e.target.value);
-                  setFeedbackText(e.target.value);
                 }}
                 className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-800 focus:border-emerald-200 focus:ring-2 focus:ring-emerald-100 outline-none transition"
-              >
-                {DEMO_FEEDBACKS.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+                placeholder={defaultFeedback}
+              />
             </div>
             <div className="space-y-3">
               <label className="text-xs font-semibold text-slate-600">Learning Feedback Text</label>
